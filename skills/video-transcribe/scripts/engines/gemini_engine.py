@@ -9,7 +9,9 @@ async def transcribe_gemini(file_path: str) -> List[Dict[str, Any]]:
     if not api_key:
         print("Warning: GEMINI_API_KEY is not set. Transcription will fail without an API key.")
         
-    model = "gemini-2.5-flash"
+    model = os.getenv("GEMINI_TRANSCRIPTION_MODEL", "").strip()
+    if not model:
+        raise RuntimeError("Thiếu GEMINI_TRANSCRIPTION_MODEL trong .env.")
     
     with open(file_path, "rb") as f:
         audio_data = f.read()

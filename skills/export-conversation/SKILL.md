@@ -1,9 +1,13 @@
 ---
 name: export-conversation
-description: Xuất toàn bộ tiến trình và lịch sử cuộc hội thoại (lời thoại User/Assistant, suy nghĩ thinking, lịch sử chạy lệnh run_command kèm exit code & output, tác vụ nền manage_task/schedule, và cây hội thoại/lệnh của subagent) ra tệp Markdown (.md) hoặc JSON (.json). Sử dụng khi người dùng muốn lưu vết, xuất báo cáo, backup, sao lưu hoặc phân tích phiên làm việc của Agent.
+description: Xuất cuộc hội thoại Antigravity hoặc Codex ra Markdown và JSON. Tự chọn adapter theo agent hiện tại; dùng khi cần lưu vết hoặc sao lưu phiên làm việc.
 ---
 
 # Export-Conversation Skill
+
+## Chọn nguồn
+
+CLI tự chọn Codex khi môi trường có `CODEX_THREAD_ID`/`CODEX_SESSION_ID`, còn lại dùng Antigravity như trước. Dùng `--agent codex` hoặc `--agent antigravity` để chọn thủ công. Codex đọc rollout JSONL trong `$CODEX_HOME/sessions` (hoặc `~/.codex/sessions`); dùng `-c THREAD_ID` hay `--source FILE` để chọn phiên cụ thể. Không tự nhận Claude Desktop. Chỉ xuất dữ liệu thật có trong transcript; Codex không cung cấp nội dung suy nghĩ nội bộ để xuất.
 
 Kỹ năng xuất toàn diện phiên làm việc của AI Coding Agent. Khác với việc chỉ copy lại text chat thông thường, `export-conversation` trích xuất đầy đủ tầng dữ liệu sâu của phiên làm việc:
 1. **Lời thoại 2 chiều**: Nội dung yêu cầu của User và phản hồi của Assistant.
@@ -168,7 +172,7 @@ Cấu trúc JSON chuẩn hóa (RFC 8259) phục vụ phân tích tự động ho
 | Tham số | Kiểu | Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
 | `-c`, `--conversation-id` | string | Tự nhận diện | ID phiên hội thoại cần xuất (mặc định lấy phiên mới nhất trong `brain/`). |
-| `-b`, `--brain-dir` | string | Tự nhận diện | Đường dẫn thư mục `brain/` của Antigravity (mặc định `~/.gemini/antigravity/brain`). |
+| `-b`, `--brain-dir` | string | Tự nhận diện | Đường dẫn thư mục transcript. Mặc định tự tìm thư mục Antigravity cục bộ; có thể ghi đè bằng `EXPORT_CONVERSATION_BRAIN_DIR`. |
 | `-f`, `--format` | choice | `all` | Định dạng xuất: `md` (Markdown), `json` (JSON), hoặc `all` (cả hai). |
 | `-o`, `--output` | string | `./scratch/...` | Đường dẫn tệp hoặc thư mục lưu file xuất. |
 | `--no-thinking` | flag | `false` | Loại bỏ phần Thinking trong file Markdown để giảm dung lượng file. |

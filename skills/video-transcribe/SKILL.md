@@ -91,7 +91,7 @@ python .agents/skills/video-transcribe/scripts/transcribe_video.py \
 ### Cấu hình Biến môi trường (.env)
 
 - **Groq:** `GROQ_API_KEY`, `GROQ_ENDPOINT_URL` (mặc định: `https://api.groq.com/openai/v1/audio/transcriptions`).
-- **Gemini Direct:** `GEMINI_TRANSCRIPTION_API_KEY` (hoặc `GEMINI_TTS_API_KEY`, `GEMINI_API_KEY`).
+- **Gemini Direct:** `GEMINI_TRANSCRIPTION_API_KEY` (hoặc `GEMINI_TTS_API_KEY`, `GEMINI_API_KEY`) và bắt buộc `GEMINI_TRANSCRIPTION_MODEL`.
 - **faster-whisper:** Không yêu cầu API Key. Tự động tải weights lần đầu vào cache HuggingFace.
 
 ## Mẫu Đầu ra Console

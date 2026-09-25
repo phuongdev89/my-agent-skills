@@ -20,30 +20,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 def get_default_brain_dir() -> Path:
-    """Detect the Antigravity brain directory across OS environments."""
-    # 1. Environment variable override
-    env_dir = os.environ.get("ANTIGRAVITY_BRAIN_DIR") or os.environ.get("GEMINI_BRAIN_DIR")
+    """Detect the local Antigravity transcript root, with an explicit override."""
+    env_dir = os.environ.get("EXPORT_CONVERSATION_BRAIN_DIR") or os.environ.get("ANTIGRAVITY_BRAIN_DIR") or os.environ.get("GEMINI_BRAIN_DIR")
     if env_dir:
-        p = Path(env_dir).resolve()
-        if p.exists():
-            return p
-
-    # 2. Standard ~/.gemini/antigravity/brain
-    home = Path.home()
-    standard_p = home / ".gemini" / "antigravity" / "brain"
-    if standard_p.exists():
-        return standard_p
-
-    # 3. Windows specific check (USERPROFILE)
-    if os.name == "nt":
-        user_profile = os.environ.get("USERPROFILE")
-        if user_profile:
-            win_p = Path(user_profile) / ".gemini" / "antigravity" / "brain"
-            if win_p.exists():
-                return win_p
-
-    # Return standard path even if not yet created
-    return standard_p
+        return Path(env_dir).expanduser().resolve()
+    return Path.home() / ".gemini" / "antigravity" / "brain"
 
 
 def find_latest_conversation(brain_dir: Path) -> Optional[str]:
@@ -115,6 +96,64 @@ def read_file_safe(path: Path) -> Optional[str]:
         return None
 
 
+def codex_sessions_dir() -> Path:
+    return Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser() / "sessions"
+
+
+def find_codex_transcript(conversation_id: Optional[str], source: Optional[str] = None) -> Optional[Path]:
+    if source:
+        path = Path(source).expanduser().resolve()
+        return path if path.is_file() else None
+    root = codex_sessions_dir()
+    if not root.is_dir():
+        return None
+    files = root.rglob("*.jsonl")
+    if conversation_id:
+        return next((p for p in files if conversation_id in p.stem), None)
+    return max(files, key=lambda p: p.stat().st_mtime, default=None)
+
+
+def parse_codex_transcript(path: Path, include_subagents: bool = True) -> Dict[str, Any]:
+    """Read Codex rollout JSONL. Only exported content present in the log is included."""
+    records = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    session = next((r.get("payload", {}) for r in records if r.get("type") == "session_meta"), {})
+    cid = session.get("id") or path.stem.rsplit("-", 1)[-1]
+    dialogue, commands, timeline, calls = [], [], [], {}
+    for index, record in enumerate(records):
+        if record.get("type") != "response_item":
+            continue
+        item = record.get("payload", {})
+        kind = item.get("type")
+        stamp = record.get("timestamp", "")
+        if kind == "message" and item.get("role") in ("user", "assistant"):
+            content = "\n".join(str(part.get("text", "")) for part in item.get("content", []) if part.get("type") in ("input_text", "output_text"))
+            role = item["role"]
+            dialogue.append({"turn": len(dialogue) + 1, "step_index": index, "speaker": role, "timestamp": stamp, "content": content, "response": content if role == "assistant" else "", "thinking": "", "tool_calls": []})
+            timeline.append({"timestamp": stamp, "event_type": "user_message" if role == "user" else "assistant_response", "content": content, "response": content})
+        elif kind in ("function_call", "custom_tool_call"):
+            name = item.get("name", "")
+            raw_args = item.get("arguments", item.get("input", ""))
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except (ValueError, TypeError):
+                args = {"raw": raw_args}
+            call_id = item.get("call_id", "")
+            calls[call_id] = {"name": name, "args": args, "timestamp": stamp, "step_index": index}
+            if dialogue and dialogue[-1]["speaker"] == "assistant":
+                dialogue[-1]["tool_calls"].append({"name": name, "args": args})
+        elif kind in ("function_call_output", "custom_tool_call_output"):
+            call = calls.get(item.get("call_id"), {})
+            if call.get("name") in ("exec_command", "functions.exec_command"):
+                args = call.get("args", {})
+                output = item.get("output", "")
+                commands.append({"step_index": call.get("step_index"), "timestamp": call.get("timestamp", ""), "command": args.get("cmd", ""), "cwd": args.get("workdir", session.get("cwd", "")), "exit_code": parse_exit_code(str(output)), "output": output})
+                timeline.append({"timestamp": stamp, "event_type": "command_execution", "command": args.get("cmd", ""), "exit_code": commands[-1]["exit_code"]})
+    return {"conversation_id": cid, "metadata": {"conversation_id": cid, "provider": "codex", "transcript_source": str(path), "start_time": records[0].get("timestamp", "") if records else "", "end_time": records[-1].get("timestamp", "") if records else "", "total_steps": len(records), "total_dialogue_turns": len(dialogue), "total_commands_run": len(commands), "total_tasks": 0, "total_subagents": 0}, "dialogue": dialogue, "command_history": commands, "task_history": [], "subagents": [], "timeline": timeline}
 class TranscriptParser:
     """Parses Antigravity transcript files for a specific conversation."""
 
@@ -668,13 +707,13 @@ def format_to_markdown(data: Dict[str, Any], include_thinking: bool = True, incl
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Antigravity Conversation Exporter: Export conversation history, commands, tasks, and subagents to Markdown and JSON."
+        description="Export Antigravity or Codex conversations to Markdown and JSON."
     )
     parser.add_argument(
         "-c", "--conversation-id",
         type=str,
         default=None,
-        help="Conversation ID to export. If omitted, the latest active conversation in brain/ is used."
+        help="Conversation ID to export. Defaults to current Codex thread or latest Antigravity conversation."
     )
     parser.add_argument(
         "-b", "--brain-dir",
@@ -682,6 +721,8 @@ def main() -> int:
         default=None,
         help="Custom path to Antigravity brain directory."
     )
+    parser.add_argument("--agent", choices=["auto", "antigravity", "codex"], default="auto", help="Transcript adapter. Auto detects the current agent.")
+    parser.add_argument("--source", help="Explicit Codex rollout JSONL file.")
     parser.add_argument(
         "-f", "--format",
         choices=["md", "json", "all"],
@@ -707,31 +748,28 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Determine brain directory
-    brain_dir = Path(args.brain_dir).resolve() if args.brain_dir else get_default_brain_dir()
-    if not brain_dir.exists():
-        print(f"[-] Error: Brain directory does not exist: {brain_dir}", file=sys.stderr)
-        return 1
-
-    # Determine conversation ID
-    conv_id = args.conversation_id
-    if not conv_id:
-        conv_id = find_latest_conversation(brain_dir)
-        if not conv_id:
-            print(f"[-] Error: No conversation found in {brain_dir}", file=sys.stderr)
+    agent = args.agent
+    if agent == "auto":
+        agent = "codex" if args.source or os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_SESSION_ID") else "antigravity"
+    if agent == "codex":
+        requested_id = args.conversation_id or (os.environ.get("CODEX_THREAD_ID") if args.agent == "auto" else None)
+        transcript = find_codex_transcript(requested_id, args.source)
+        if not transcript:
+            print("[-] Error: Codex transcript not found. Pass --source FILE or -c THREAD_ID.", file=sys.stderr)
             return 1
-        print(f"[+] Auto-detected latest conversation ID: {conv_id}")
+        parsed_data = parse_codex_transcript(transcript, include_subagents=not args.no_subagents)
+        conv_id = parsed_data["conversation_id"]
     else:
-        print(f"[+] Using specified conversation ID: {conv_id}")
-
-    conv_path = brain_dir / conv_id
-    if not conv_path.exists():
-        print(f"[-] Error: Conversation directory not found: {conv_path}", file=sys.stderr)
-        return 1
-
-    print(f"[+] Parsing conversation transcript...")
-    parser_obj = TranscriptParser(brain_dir, conv_id)
-    parsed_data = parser_obj.parse()
+        brain_dir = Path(args.brain_dir).expanduser().resolve() if args.brain_dir else get_default_brain_dir()
+        if not brain_dir.exists():
+            print(f"[-] Error: Brain directory does not exist: {brain_dir}", file=sys.stderr)
+            return 1
+        conv_id = args.conversation_id or find_latest_conversation(brain_dir)
+        if not conv_id or not (brain_dir / conv_id).exists():
+            print(f"[-] Error: Antigravity conversation not found in {brain_dir}", file=sys.stderr)
+            return 1
+        parsed_data = TranscriptParser(brain_dir, conv_id).parse()
+    print(f"[+] Adapter: {agent}; conversation: {conv_id}")
 
     if not args.no_subagents:
         subagent_count = len(parsed_data.get("subagents", []))

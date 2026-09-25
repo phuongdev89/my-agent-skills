@@ -21,6 +21,7 @@ import datetime
 import json
 import mimetypes
 import os
+import secrets
 import ssl
 import sys
 import urllib.error
@@ -164,7 +165,7 @@ def call_gemini_image_api(
         data=req_data,
         headers={
             "Content-Type": "application/json",
-            "User-Agent": "idea_to_video_v2/gemini-image-generator",
+            "User-Agent": f"image-generator/{secrets.token_hex(8)}",
         },
         method="POST",
     )
@@ -229,7 +230,7 @@ def call_openai_image_api(
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "idea_to_video_v2/image-generator",
+            "User-Agent": f"image-generator/{secrets.token_hex(8)}",
         },
         method="POST",
     )

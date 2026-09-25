@@ -291,7 +291,7 @@ Script CLI trả về kết quả cấu trúc JSON qua `stdout`:
   "aspect_ratio": "9:16",
   "size": "1024x1792",
   "quality": "hd",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\04_canh\\v001\\S01\\visual.png",
+  "output_file": "<output_file>",
   "file_size_bytes": 1542300,
   "media_type": "image/png",
   "revised_prompt": "A Vietnamese 22-year-old female creator presenting a pique cotton navy polo..."
@@ -307,7 +307,7 @@ Script CLI trả về kết quả cấu trúc JSON qua `stdout`:
   "aspect_ratio": "9:16",
   "size": "1024x1792",
   "quality": "standard",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\04_canh\\v001\\S01\\visual.png",
+  "output_file": "<output_file>",
   "file_size_bytes": 1420580,
   "media_type": "image/png",
   "revised_prompt": "Chân dung KOC nữ người Việt..."
@@ -365,4 +365,3 @@ Script CLI trả về kết quả cấu trúc JSON qua `stdout`:
 1. **Tuân thủ Tuyệt đối Sequential Interview Protocol**: Agent luôn phỏng vấn người dùng để lựa chọn 1 trong 3 phương thức (Host Tool, Gateway, Gemini Direct) trước khi thực hiện. Tuyệt đối không tự ý gán ngầm mặc định hay tự tiện gọi Host Tool khi chưa có sự xác nhận của người dùng.
 2. **Luôn chạy `--dry-run` khi kiểm tra hệ thống**: Khi nghi ngờ cấu hình `.env` hoặc đường dẫn ảnh tham chiếu bị lỗi, chạy lệnh CLI kèm cờ `--dry-run` trước để thẩm định tính hợp lệ mà không tiêu tốn credit thực tế.
 3. **Tuân thủ Vùng an toàn 9:16 (Safe Zone)**: Mọi chi tiết quan trọng về gương mặt KOC và sản phẩm thời trang phải nằm trong 70% trung tâm khung hình, chừa 15% phía dưới cho phụ đề động và giao diện ứng dụng mạng xã hội (nút like, comment, giỏ hàng sàn).
-

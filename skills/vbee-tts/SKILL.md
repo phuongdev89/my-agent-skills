@@ -38,7 +38,7 @@ description: Generate natural Vietnamese narration with Vbee AIVoice (vbee.vn). 
 ## 1. Cấu hình Tài khoản & Biến môi trường
 
 Vbee yêu cầu API Key / Token từ tài khoản Vbee:
-Cần cấu hình trong file `.env` tại thư mục dự án hoặc `d:\Affiliate\05_Tai_Khoan_Va_ID\.env`:
+Cần cấu hình trong file `.env` tại thư mục dự án. Nếu dùng file cấu hình riêng, đặt `VBEE_ENV_FILE` trỏ tới file đó:
 ```env
 VBEE_APP_ID=your_vbee_app_id
 VBEE_ACCESS_TOKEN=your_vbee_access_token
@@ -46,8 +46,7 @@ VBEE_ACCESS_TOKEN=your_vbee_access_token
 
 Script sẽ tự động tìm kiếm các file `.env` theo thứ tự:
 1. `.env` tại thư mục hiện tại (`cwd`)
-2. `d:\Affiliate\04_Tools\idea_to_video_v2 - gemini\.env`
-3. `d:\Affiliate\05_Tai_Khoan_Va_ID\.env`
+2. File được chỉ định bởi `VBEE_ENV_FILE`
 4. Biến môi trường hệ thống (`os.environ`)
 
 ---
@@ -94,7 +93,7 @@ Script trả về kết quả JSON chuẩn giúp Agent và hệ thống đối s
   "status": "success",
   "engine": "vbee",
   "voice_code": "hn_female_thutrang_48k-fhg",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\scratch\\2026-09-22_vbee-tts_sinh-giong-thu-trang-review\\output\\voiceover.mp3",
+  "output_file": "<session_dir>/output/voiceover.mp3",
   "duration_seconds": 3.84,
   "file_size_bytes": 61440,
   "audio_format": "mp3"

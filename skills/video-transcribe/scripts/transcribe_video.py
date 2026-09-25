@@ -120,7 +120,7 @@ async def run_transcription(args):
     elif method == "gemini":
         if transcribe_gemini:
             segments = await transcribe_gemini(audio_path)
-        used_model = "gemini-2.5-flash"
+        used_model = os.getenv("GEMINI_TRANSCRIPTION_MODEL", "").strip() or "configured Gemini model"
     
     elapsed_time = time.time() - start_time
     

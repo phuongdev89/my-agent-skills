@@ -90,7 +90,7 @@ def load_env_credentials() -> Dict[str, str]:
     """Tìm và nạp VBEE_APP_ID và VBEE_ACCESS_TOKEN từ các file .env ứng viên."""
     creds = {
         "app_id": os.getenv("VBEE_APP_ID", ""),
-        "access_token": os.getenv("VBEE_ACCESS_TOKEN", "") or os.getenv("VBEE_API_KEY", "")
+        "access_token": os.getenv("VBEE_ACCESS_TOKEN", "")
     }
     if creds["app_id"] and creds["access_token"]:
         return creds
@@ -98,11 +98,11 @@ def load_env_credentials() -> Dict[str, str]:
     candidate_files = [
         Path.cwd() / ".env",
         Path(__file__).resolve().parent.parent.parent.parent / ".env",
-        Path(r"D:\Affiliate\05_Tai_Khoan_Va_ID\.env"),
+        Path(os.getenv("VBEE_ENV_FILE", "")).expanduser() if os.getenv("VBEE_ENV_FILE") else None,
     ]
 
     for p in candidate_files:
-        if not p.exists():
+        if p is None or not p.exists():
             continue
         try:
             for line in p.read_text(encoding="utf-8-sig").splitlines():
@@ -114,7 +114,7 @@ def load_env_credentials() -> Dict[str, str]:
                 v = v.strip().strip("'\"")
                 if k == "VBEE_APP_ID" and not creds["app_id"]:
                     creds["app_id"] = v
-                elif k in ("VBEE_ACCESS_TOKEN", "VBEE_API_KEY") and not creds["access_token"]:
+                elif k == "VBEE_ACCESS_TOKEN" and not creds["access_token"]:
                     creds["access_token"] = v
         except Exception:
             pass

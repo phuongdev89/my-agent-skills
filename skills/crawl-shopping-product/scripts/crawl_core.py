@@ -31,12 +31,36 @@ async def crawl_product(url: str) -> Optional[Dict[str, Any]]:
     resolved_url = await resolve_redirect(url)
     
     # Custom LLM Endpoint config
-    endpoint_url = os.getenv("AI_AGENT_3_ENDPOINT_URL") or os.getenv("AI_AGENT_1_ENDPOINT_URL", "https://omniroute.phuonganh.io.vn/v1")
+    endpoint_url = (
+        os.getenv("CRAWL_PRODUCT_ENDPOINT_URL")
+        or os.getenv("AI_AGENT_3_ENDPOINT_URL")
+        or os.getenv("AI_AGENT_1_ENDPOINT_URL", "")
+    ).strip()
+    if not endpoint_url:
+        raise RuntimeError(
+            "Thiếu CRAWL_PRODUCT_ENDPOINT_URL (hoặc AI_AGENT_3_ENDPOINT_URL/AI_AGENT_1_ENDPOINT_URL) trong .env."
+        )
     if endpoint_url.endswith("/chat/completions"):
         endpoint_url = endpoint_url.replace("/chat/completions", "")
     
-    api_key = os.getenv("AI_AGENT_3_API_KEY") or os.getenv("AI_AGENT_1_API_KEY", "sk-03d858f56405a925-8502d0-9876f288")
-    model_name = "gemini-3.8-flash"
+    api_key = (
+        os.getenv("CRAWL_PRODUCT_API_KEY")
+        or os.getenv("AI_AGENT_3_API_KEY")
+        or os.getenv("AI_AGENT_1_API_KEY", "")
+    ).strip()
+    if not api_key:
+        raise RuntimeError(
+            "Thiếu CRAWL_PRODUCT_API_KEY (hoặc AI_AGENT_3_API_KEY/AI_AGENT_1_API_KEY) trong .env."
+        )
+    model_name = (
+        os.getenv("CRAWL_PRODUCT_MODEL")
+        or os.getenv("AI_AGENT_3_MODELS")
+        or os.getenv("AI_AGENT_1_MODELS", "")
+    ).split(",")[0].strip()
+    if not model_name:
+        raise RuntimeError(
+            "Thiếu CRAWL_PRODUCT_MODEL (hoặc AI_AGENT_3_MODELS/AI_AGENT_1_MODELS) trong .env."
+        )
     
     strategy = LLMExtractionStrategy(
         provider=f"openai/{model_name}", # Compatible

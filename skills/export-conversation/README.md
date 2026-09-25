@@ -1,5 +1,7 @@
 # Export-Conversation Skill
 
+Hỗ trợ Antigravity và Codex. CLI tự nhận agent hiện tại; chọn rõ bằng `--agent antigravity|codex`. Với Codex, dùng `-c THREAD_ID` hoặc `--source <rollout.jsonl>` khi cần phiên khác. Nội dung reasoning nội bộ không được xuất nếu transcript không chứa văn bản đó. Claude Desktop chưa được hỗ trợ.
+
 Kỹ năng xuất và sao lưu toàn diện lịch sử hội thoại AI Coding Agent thành tệp **Markdown (`.md`)** hoặc **JSON (`.json`)**. 
 
 Được thiết kế để lưu vết chính xác quá trình làm việc, bao gồm cả các tầng dữ liệu mà giao diện chat thông thường không hiển thị: **lời thoại 2 chiều, suy nghĩ (thinking/chain-of-thought), lịch sử thực thi lệnh terminal (`run_command`), tác vụ nền (`manage_task`, `schedule`), và toàn bộ hoạt động nội bộ của các Subagents**.

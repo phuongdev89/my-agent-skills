@@ -110,7 +110,7 @@ Script trả về kết quả JSON chuẩn giúp Agent đối soát thời lư�
   "status": "success",
   "mode": "preset_voice",
   "voice": "Đoan Trang",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\scratch\\2026-09-22_vieneu-tts_clone-giong-koc-doan-trang\\output\\voiceover.wav",
+  "output_file": "<session_dir>/output/voiceover.wav",
   "duration_seconds": 4.4,
   "sample_rate": 48000,
   "file_size_bytes": 422444

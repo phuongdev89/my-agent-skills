@@ -79,8 +79,8 @@ OPENAI_VOICE_CATALOG: Dict[str, Dict[str, str]] = {
     "shimmer": {"name": "shimmer", "gender": "Nữ", "tone": "Trong trẻo, nhẹ nhàng, êm tai"},
 }
 
-DEFAULT_AISTUDIO_MODEL = "gemini-2.0-flash"
-DEFAULT_OPENAI_MODEL = "gemini-2.0-flash"
+DEFAULT_AISTUDIO_MODEL = ""
+DEFAULT_OPENAI_MODEL = ""
 
 
 def load_candidate_env() -> Dict[str, str]:
@@ -89,11 +89,12 @@ def load_candidate_env() -> Dict[str, str]:
     candidate_files = [
         Path.cwd() / ".env",
         Path(__file__).resolve().parent.parent.parent.parent / ".env",
-        Path(r"d:\Affiliate\05_Tai_Khoan_Va_ID\.env"),
-        Path(r"d:\Affiliate\04_Tools\idea_to_video_v2 - gemini\.env"),
+        Path(os.getenv("GEMINI_TTS_ENV_FILE", "")).expanduser()
+        if os.getenv("GEMINI_TTS_ENV_FILE")
+        else None,
     ]
     for p in candidate_files:
-        if not p.is_file():
+        if p is None or not p.is_file():
             continue
         try:
             for line in p.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
@@ -111,6 +112,7 @@ def load_candidate_env() -> Dict[str, str]:
     # Ưu tiên các biến chuyên dụng cho GEMINI_TTS trong os.environ
     for k in (
         "GEMINI_TTS_API_KEY",
+        "GEMINI_TTS_ENABLE",
         "GEMINI_TTS_ENDPOINT_URL",
         "GEMINI_TTS_MODEL",
         "GEMINI_TTS_VOICE",
@@ -132,6 +134,8 @@ def resolve_config(
 ) -> Dict[str, str]:
     """Xác định toàn bộ cấu hình riêng cho Gemini TTS (tuyệt đối không dùng chung key agent khác)."""
     env = load_candidate_env()
+
+    enabled = (env.get("GEMINI_TTS_ENABLE", "true").strip().lower() in ("1", "true", "yes", "on"))
 
     # 1. API Key: BẮT BUỘC dùng GEMINI_TTS_API_KEY hoặc GEMINI_API_KEY (không dùng AI_AGENT_*)
     api_key = (
@@ -162,8 +166,9 @@ def resolve_config(
     model = (
         cli_model
         or env.get("GEMINI_TTS_MODEL", "")
-        or (DEFAULT_AISTUDIO_MODEL if provider == "aistudio" else DEFAULT_OPENAI_MODEL)
     ).strip()
+    if not model:
+        raise RuntimeError("Thiếu GEMINI_TTS_MODEL trong .env hoặc tham số --model.")
 
     # 5. Voice
     default_voice = "kore" if provider == "aistudio" else "nova"
@@ -175,6 +180,7 @@ def resolve_config(
         "provider": provider,
         "model": model,
         "voice": voice,
+        "enabled": enabled,
     }
 
 
@@ -619,6 +625,9 @@ def main() -> None:
         cli_voice=args.voice,
         cli_provider=args.provider,
     )
+    if not cfg["enabled"]:
+        print("Gemini-TTS đang tắt: đặt GEMINI_TTS_ENABLE=true để sử dụng.", file=sys.stderr)
+        return 1
 
     if not cfg["api_key"]:
         err_response = {

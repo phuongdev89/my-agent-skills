@@ -106,3 +106,12 @@ python .agents/skills/crawl-shopping-product/scripts/crawl_product.py \
   "source_url": "https://shopee.vn/..."
 }
 ```
+### Cấu hình LLM bắt buộc
+
+Đặt các biến sau trong `.env` trước khi crawl. Skill không có endpoint, API key hoặc model mặc định:
+
+```env
+CRAWL_PRODUCT_ENDPOINT_URL=https://your-provider.example/v1
+CRAWL_PRODUCT_API_KEY=your_api_key
+CRAWL_PRODUCT_MODEL=your_model
+```

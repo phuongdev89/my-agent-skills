@@ -39,7 +39,7 @@ description: Generate expressive, style-controlled Vietnamese voiceovers using G
 > **TUYỆT ĐỐI KHÔNG DÙNG CHUNG KEY VỚI CÁC AGENT KHÁC.**
 > `gemini-tts` sở hữu bộ biến môi trường độc lập hoàn toàn, không phụ thuộc hay can thiệp vào `AI_AGENT_1_API_KEY`, `AI_AGENT_2_API_KEY`... nhằm đảm bảo hạn ngạch (rate limit), tính ổn định và tách bạch trách nhiệm hệ thống.
 
-Cấu hình trong file `.env` tại thư mục dự án hoặc `d:\Affiliate\05_Tai_Khoan_Va_ID\.env`:
+Cấu hình trong file `.env` tại thư mục dự án. Nếu dùng file cấu hình riêng, đặt `GEMINI_TTS_ENV_FILE` trỏ tới file đó:
 
 ```env
 # ==============================================================================
@@ -128,7 +128,7 @@ Script trả về kết quả chuẩn JSON giúp Agent và hệ thống đối s
   "provider": "aistudio",
   "model": "gemini-2.0-flash",
   "voice": "Kore",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\scratch\\2026-09-22_gemini-tts_sinh-voice-koc-ao-polo\\output\\voiceover.wav",
+  "output_file": "<session_dir>/output/voiceover.wav",
   "duration_seconds": 4.15,
   "sample_rate": 24000,
   "file_size_bytes": 199244,
