@@ -1,6 +1,6 @@
 # My Agent Skills
 
-Bộ sưu tập **14 skill** tôi thường dùng cho lập trình, nghiên cứu, tự động hóa trình duyệt và sản xuất nội dung bằng AI — từ lấy dữ liệu sản phẩm đến tạo ảnh, giọng đọc và xử lý video.
+Bộ sưu tập **15 skill** tôi thường dùng cho lập trình, nghiên cứu, tự động hóa trình duyệt và sản xuất nội dung bằng AI — từ lấy dữ liệu sản phẩm đến tạo ảnh, giọng đọc, xử lý video và xuất nhật ký hội thoại.
 
 Repository chứa hướng dẫn cùng script và tài liệu hỗ trợ. Cài qua [Skills CLI](https://github.com/vercel-labs/skills), sau đó sử dụng trong coding agent của bạn.
 
@@ -67,6 +67,7 @@ Bấm vào tên để đọc quy trình, điều kiện chạy và các tài ngu
 | [video-transcribe](skills/video-transcribe/SKILL.md) | Phiên âm và xuất SRT, VTT, TXT, JSON | Python; chọn Groq, Gemini hoặc faster-whisper |
 | [video-edit](skills/video-edit/SKILL.md) | Cắt, ghép, resize, overlay, đổi tốc độ video | FFmpeg/ffprobe |
 | [ffmpeg](skills/ffmpeg/SKILL.md) | Chuyển đổi, nén và xử lý video/audio | FFmpeg |
+| [export-conversation](skills/export-conversation/SKILL.md) | Xuất toàn bộ hội thoại, lịch sử chạy lệnh, task và subagent ra MD/JSON | Python (thư viện chuẩn, zero dependency) |
 
 ## Sử dụng sau khi cài
 
@@ -86,7 +87,7 @@ Skills CLI hỗ trợ nhiều agent, nhưng **cài được file không đồng 
 - Mỗi skill có `SKILL.md` với `name` và `description`; script/reference được đặt cạnh hướng dẫn.
 - Các workflow có sub-agent, browser extension hoặc tool tạo ảnh cần khả năng tương ứng từ môi trường chạy.
 - Cài skill không tự động cài Python package, FFmpeg, browser extension hoặc cấp quyền API.
-- Chưa có kiểm thử end-to-end cho toàn bộ 14 skill trên từng agent; xem [ghi chú tương thích](docs/COMPATIBILITY.md).
+- Chưa có kiểm thử end-to-end cho toàn bộ 15 skill trên từng agent; xem [ghi chú tương thích](docs/COMPATIBILITY.md).
 - Kết quả kiểm tra bằng validator chỉ xác nhận cấu trúc/frontmatter cơ bản, không chứng minh provider hoạt động hoặc chất lượng media.
 
 ## Cấu hình và an toàn
