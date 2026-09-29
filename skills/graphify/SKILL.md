@@ -10,9 +10,9 @@ Turn any folder of files into a navigable knowledge graph with community detecti
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động phân tích codebase, trích xuất đồ thị tri thức, lưu file AST/semantic, báo cáo và export của graphify phải được tổ chức trong session directory:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_graphify_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_graphify_architecture-knowledge-graph`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_graphify_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_graphify_architecture-knowledge-graph`
 - **Cấu trúc thư mục con bắt buộc**:
   - `input/` (hoặc `raw/`): Chứa tài liệu nguồn, repo clone từ bên ngoài (`/graphify add <url>`), transcripts của video/audio.
   - `output/` (hoặc `exports/`): Chứa các artifacts kết xuất hoàn chỉnh (`graph.html`, `GRAPH_REPORT.md`, `graph.json`, `obsidian/`, `graph.svg`, `graph.graphml`, `cypher.txt`).
@@ -22,7 +22,7 @@ Mọi hoạt động phân tích codebase, trích xuất đồ thị tri thức,
 
 Khởi tạo cấu trúc session trước khi chạy:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_graphify_ten-task"
+SESSION_DIR="./.scratch/2026-09-22_graphify_ten-task"
 mkdir -p "$SESSION_DIR/input" "$SESSION_DIR/raw" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 

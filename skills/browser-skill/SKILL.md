@@ -19,12 +19,12 @@ advice-only tasks. Never extract credentials, cookies, tokens, or other secrets.
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** lưu ảnh chụp màn hình (screenshot), file tải xuống, hoặc file tạm trực tiếp ra thư mục gốc repo. Mọi tài nguyên vào/ra của browser automation phải được tổ chức trong thư mục session.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_browser-skill_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_browser-skill_thu-thap-du-lieu-web`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_browser-skill_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_browser-skill_thu-thap-du-lieu-web`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_browser-skill_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_browser-skill_công-việc-viết-không-dấu/
   ├── downloads/  # (hoặc input/) Chứa tệp tải về từ web (`bsk download`) hoặc tệp chuẩn bị upload (`bsk upload`)
   ├── output/     # (hoặc generated/) Chứa ảnh chụp màn hình (`bsk screenshot`), DOM snapshot, trích xuất dữ liệu
   ├── scripts/    # Chứa script Node/Python/Shell tự động hóa bổ trợ riêng cho session (tuyệt đối không sửa src/)
@@ -33,12 +33,12 @@ advice-only tasks. Never extract credentials, cookies, tokens, or other secrets.
 - **Khởi tạo và sử dụng biến môi trường SESSION_DIR:**
   ```bash
   # Bash
-  SESSION_DIR="./scratch/$(date +%Y-%m-%d)_browser-skill_thu-thap-du-lieu-web"
+  SESSION_DIR="./.scratch/$(date +%Y-%m-%d)_browser-skill_thu-thap-du-lieu-web"
   mkdir -p "$SESSION_DIR/downloads" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
   ```
   ```powershell
   # PowerShell (Windows)
-  $SESSION_DIR = "./scratch/$((Get-Date).ToString('yyyy-MM-dd'))_browser-skill_thu-thap-du-lieu-web"
+  $SESSION_DIR = "./.scratch/$((Get-Date).ToString('yyyy-MM-dd'))_browser-skill_thu-thap-du-lieu-web"
   New-Item -ItemType Directory -Force -Path "$SESSION_DIR/downloads", "$SESSION_DIR/output", "$SESSION_DIR/scripts", "$SESSION_DIR/temp"
   ```
 

@@ -13,9 +13,9 @@ Edit videos locally by running ffmpeg/ffprobe directly. No wrapper scripts neede
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động cắt, ghép, thay đổi tốc độ, nén, trích xuất âm thanh và đóng dấu watermark phải được cô lập trong session directory:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_video-edit_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_video-edit_cut-social-clips`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_video-edit_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_video-edit_cut-social-clips`
 - **Cấu trúc thư mục con bắt buộc**:
   - `input/` (hoặc `raw/`): Chứa video gốc, file audio rời, watermark logo đầu vào.
   - `output/` (hoặc `exports/`): Chứa video thành phẩm đã biên tập (`trimmed.mp4`, `joined.mp4`, `tiktok.mp4`, `watermarked.mp4`).
@@ -25,7 +25,7 @@ Mọi hoạt động cắt, ghép, thay đổi tốc độ, nén, trích xuất 
 
 Khởi tạo session trước khi thực hiện:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_video-edit_cut-social-clips"
+SESSION_DIR="./.scratch/2026-09-22_video-edit_cut-social-clips"
 mkdir -p "$SESSION_DIR/input" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 

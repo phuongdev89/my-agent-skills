@@ -15,12 +15,12 @@ description: Generate expressive, style-controlled Vietnamese voiceovers using G
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file âm thanh hay script tạo voice trực tiếp ra thư mục gốc repo hoặc `04_canh/` bừa bãi. Mọi tác vụ sinh giọng đọc phải được tổ chức trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_gemini-tts_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_gemini-tts_sinh-voice-koc-ao-polo`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_gemini-tts_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_gemini-tts_sinh-voice-koc-ao-polo`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_gemini-tts_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_gemini-tts_công-việc-viết-không-dấu/
   ├── input/      # Chứa file văn bản kịch bản phân cảnh (`voice_segment.txt`, `script.txt`)
   ├── output/     # Chứa tệp âm thanh hoàn chỉnh (`voiceover.wav`, `voiceover.mp3`, `S01_audio.wav`)
   ├── scripts/    # Chứa script tiện ích / tinh chỉnh bổ trợ phiên làm việc (tuyệt đối không sửa src/)
@@ -81,7 +81,7 @@ Tự động nhận diện provider (`aistudio` hoặc `openai`) dựa trên end
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_gemini-tts_sinh-voice-koc-ao-polo"
+SESSION_DIR="./.scratch/2026-09-22_gemini-tts_sinh-voice-koc-ao-polo"
 ```
 
 ### A. Sinh voice qua Google AI Studio (Tự động xuất vào session_dir/output/)

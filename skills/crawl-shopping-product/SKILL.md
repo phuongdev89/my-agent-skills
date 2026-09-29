@@ -17,12 +17,12 @@ Skill phục vụ trực tiếp cho quy trình **Bước 1 & Bước 2 (SOP)**: 
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file `product_data.json` hay ảnh cào được trực tiếp ra root repo hoặc thư mục chung. Mọi dữ liệu cào sản phẩm bắt buộc phải lưu trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_crawl-shopping-product_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_crawl-shopping-product_cao-dam-da-hoi`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_crawl-shopping-product_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_crawl-shopping-product_cao-dam-da-hoi`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_crawl-shopping-product_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_crawl-shopping-product_công-việc-viết-không-dấu/
   ├── downloads/  # (hoặc input/, raw/) Chứa toàn bộ ảnh sản phẩm độ phân giải cao tải về
   ├── output/     # (hoặc generated/) Chứa tệp dữ liệu có cấu trúc `product_data.json`
   ├── scripts/    # Chứa script trích xuất bổ trợ riêng cho session (tuyệt đối không sửa src/)
@@ -57,7 +57,7 @@ AI_AGENT_3_MODELS=gpt-4o
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_crawl-shopping-product_cao-dam-da-hoi"
+SESSION_DIR="./.scratch/2026-09-22_crawl-shopping-product_cao-dam-da-hoi"
 
 # 1. Cào tự động kèm tải ảnh với tham số --session-dir (Khuyến nghị hàng đầu)
 # (Script tự động lưu output/product_data.json và tải ảnh vào downloads/)

@@ -8,9 +8,9 @@ Spin up a **background agent** to do the research, so you keep working while it 
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động thu thập thông tin, tài liệu nguyên bản và kết quả nghiên cứu phải lưu trong session directory:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_research_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_research_flux-api-parameters`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_research_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_research_flux-api-parameters`
 - **Cấu trúc thư mục con bắt buộc**:
   - `raw/` (hoặc `input/`): Lưu tài liệu gốc, html/markdown tải về, API spec thô từ primary sources.
   - `output/`: File markdown tổng hợp kết quả nghiên cứu (ví dụ: `RESEARCH_FINDINGS.md`), tài liệu trích dẫn chuẩn hóa.
@@ -20,7 +20,7 @@ Mọi hoạt động thu thập thông tin, tài liệu nguyên bản và kết 
 
 Khởi tạo session trước khi chạy nghiên cứu:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_research_ten-de-tai"
+SESSION_DIR="./.scratch/2026-09-22_research_ten-de-tai"
 mkdir -p "$SESSION_DIR/raw" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 

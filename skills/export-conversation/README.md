@@ -40,7 +40,7 @@ python skills/export-conversation/scripts/export_conversation.py [OPTIONS]
 
 ### Các ví dụ thông dụng:
 
-#### 1. Xuất phiên hội thoại mới nhất ra thư mục `./scratch/` (cả `.md` và `.json`):
+#### 1. Xuất phiên hội thoại mới nhất ra thư mục `./.scratch/` (cả `.md` và `.json`):
 ```bash
 python skills/export-conversation/scripts/export_conversation.py
 ```

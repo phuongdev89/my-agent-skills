@@ -36,7 +36,7 @@ capture ERROR_MSG "Paste the error message (or 'none'):"
 
 # --- edit above ---------------------------------------------------------
 
-SESSION_DIR="./scratch/$(date +%Y%m%d)_hitl_session"
+SESSION_DIR="./.scratch/$(date +%Y%m%d)_hitl_session"
 LOG_FILE="$SESSION_DIR/output/hitl.log"
 mkdir -p "$(dirname "$LOG_FILE")"
 

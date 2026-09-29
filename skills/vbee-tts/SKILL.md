@@ -17,12 +17,12 @@ description: Generate natural Vietnamese narration with Vbee AIVoice (vbee.vn). 
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file âm thanh tạo bởi Vbee hoặc file kịch bản trực tiếp ra thư mục gốc repo hoặc `04_canh/` bừa bãi. Mọi tác vụ sinh giọng đọc phải được tổ chức trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_vbee-tts_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_vbee-tts_sinh-giong-thu-trang-review`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_vbee-tts_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_vbee-tts_sinh-giong-thu-trang-review`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_vbee-tts_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_vbee-tts_công-việc-viết-không-dấu/
   ├── input/      # Chứa file văn bản kịch bản phân cảnh (`voice_segment.txt`, `script.txt`)
   ├── output/     # Chứa file âm thanh hoàn chỉnh (`voiceover.mp3`, `voiceover.wav`, `S01_audio.mp3`)
   ├── scripts/    # Chứa script tiện ích / tinh chỉnh bổ trợ phiên làm việc (tuyệt đối không sửa src/)
@@ -60,7 +60,7 @@ Agent có thể chạy trực tiếp bằng dòng lệnh mà không cần viết
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_vbee-tts_sinh-giong-thu-trang-review"
+SESSION_DIR="./.scratch/2026-09-22_vbee-tts_sinh-giong-thu-trang-review"
 ```
 
 ### A. Sinh giọng đọc từ văn bản trực tiếp (Tự động xuất vào session_dir/output/)

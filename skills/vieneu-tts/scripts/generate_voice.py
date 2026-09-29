@@ -164,7 +164,7 @@ def main() -> int:
             session_dir = args.session_dir.resolve()
         else:
             today = datetime.datetime.now().strftime("%Y-%m-%d")
-            session_dir = Path(f"./scratch/{today}_vieneu-tts_default").resolve()
+            session_dir = Path(f"./.scratch/{today}_vieneu-tts_default").resolve()
         out_path = session_dir / "output" / "voiceover.wav"
         
     out_path.parent.mkdir(parents=True, exist_ok=True)

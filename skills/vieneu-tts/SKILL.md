@@ -18,12 +18,12 @@ description: Generate high-fidelity on-device Vietnamese text-to-speech with Vie
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file âm thanh, file clone giọng hoặc script test trực tiếp ra thư mục gốc repo hoặc `04_canh/` bừa bãi. Mọi tài nguyên vào/ra của VieNeu-TTS phải được cô lập trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_vieneu-tts_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_vieneu-tts_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_vieneu-tts_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_vieneu-tts_công-việc-viết-không-dấu/
   ├── input/      # Chứa file audio mẫu KOC (`koc_voice_sample_5s.wav`) và file kịch bản (`voice_segment.txt`)
   ├── output/     # Chứa file âm thanh chất lượng cao 48kHz xuất xưởng (`voiceover.wav`, `S01_audio.wav`)
   ├── scripts/    # Chứa script phụ trợ / batch synthesizer của session (tuyệt đối không sửa src/)
@@ -69,7 +69,7 @@ Agent có thể chạy trực tiếp bằng dòng lệnh mà không cần phải
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang"
+SESSION_DIR="./.scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang"
 ```
 
 ### A. Sinh giọng đọc từ văn bản trực tiếp (Tự động xuất vào session_dir/output/)
@@ -139,7 +139,7 @@ VieNeu-TTS v3 Turbo tích hợp sẵn các giọng đọc chuẩn không cần a
 
 ## 4. Tích hợp trong Pipeline `idea_to_video_v2`
 
-Dự án tích hợp VieNeu-TTS thông qua [`src/adapters/voice_adapter.py`](file:///d:/Affiliate/04_Tools/idea_to_video_v2%20-%20gemini/src/adapters/voice_adapter.py) và script [`scratch/voice_helper.py`](file:///d:/Affiliate/04_Tools/idea_to_video_v2%20-%20gemini/scratch/voice_helper.py):
+Dự án tích hợp VieNeu-TTS thông qua [`src/adapters/voice_adapter.py`](file:///d:/Affiliate/04_Tools/idea_to_video_v2%20-%20gemini/src/adapters/voice_adapter.py) và script [`scratch/voice_helper.py`](file:///d:/Affiliate/04_Tools/idea_to_video_v2%20-%20gemini/.scratch/voice_helper.py):
 
 ### Chạy qua CLI Runner / Voice Helper:
 ```bash
@@ -162,7 +162,7 @@ from vieneu import Vieneu
 # Khởi tạo (tự nhận diện GPU PyTorch hoặc CPU ONNX)
 vieneu = Vieneu()
 
-session_dir = Path("./scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang")
+session_dir = Path("./.scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang")
 (session_dir / "output").mkdir(parents=True, exist_ok=True)
 
 text = "Chào các bạn! Hôm nay mình sẽ chia sẻ cảm nhận thực tế về bộ sưu tập mới này nhé [cười]."
@@ -184,7 +184,7 @@ from pathlib import Path
 from vieneu import Vieneu
 
 vieneu = Vieneu()
-session_dir = Path("./scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang")
+session_dir = Path("./.scratch/2026-09-22_vieneu-tts_clone-giong-koc-doan-trang")
 
 audio = vieneu.infer(
     text="Trời ơi, cái chất vải này nó mịn dã man luôn đó mọi người!",

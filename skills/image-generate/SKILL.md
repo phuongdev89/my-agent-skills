@@ -15,12 +15,12 @@ Skill vận hành theo kiến trúc đa luồng linh hoạt: Native Host Tool, G
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file ảnh được tạo ra, ảnh tham chiếu mẫu hoặc script trung gian trực tiếp ra root repo hoặc `04_canh/` bừa bãi. Mọi tác vụ sinh và xử lý ảnh phải được cô lập hoàn toàn trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu/
   ├── input/      # Chứa ảnh tham chiếu khóa nhận diện khuôn mặt / chi tiết sản phẩm (`koc_face.jpg`, `product_detail.jpg`)
   ├── output/     # Chứa ảnh sinh ra hoàn thiện (`visual.png`, `scene_01.png`)
   ├── scripts/    # Chứa script prompt builder / batch runner riêng cho session (tuyệt đối không sửa src/)
@@ -139,8 +139,8 @@ Khi ảnh được tạo thành công, Agent bắt buộc phải trình bày k�
 > - Model: cx/gpt-5.6-sol-image
 > - Tỷ lệ & Kích thước: 9:16 (1024x1792)
 > - Chất lượng: hd
-> - Khóa nhận diện: Đã áp dụng tham chiếu từ `./scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/input/face_sample.jpg`
-> - File kết quả: `./scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/output/visual.png` (1.52 MB)
+> - Khóa nhận diện: Đã áp dụng tham chiếu từ `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/input/face_sample.jpg`
+> - File kết quả: `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/output/visual.png` (1.52 MB)
 > 
 > **Prompt thực tế đã sử dụng:**
 > ```text
@@ -158,7 +158,7 @@ Script rẽ nhánh dựa vào `AI_IMAGE_USE_GEMINI` hoặc flag `--use-gemini`. 
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo"
+SESSION_DIR="./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo"
 ```
 
 ### A. Luồng 2: Google AI Studio Direct (`--use-gemini`)

@@ -15,9 +15,9 @@ The issue tracker should have been provided to you — run `/setup-matt-pocock-s
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động lưu vết, xuất báo cáo review, lưu diff tạm hoặc script phân tích trong quá trình code review phải được cô lập trong thư mục session:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_code-review_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_code-review_review-pr-auth-flow`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_code-review_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_code-review_review-pr-auth-flow`
 - **Cấu trúc thư mục con bắt buộc**:
   - `input/`: Chứa spec, PRD, snapshot issue tracker, hoặc file patch/diff đầu vào.
   - `output/`: Chứa báo cáo review chính thức (`review-report.md`), checklist tiêu chuẩn.
@@ -31,7 +31,7 @@ Mọi hoạt động lưu vết, xuất báo cáo review, lưu diff tạm hoặc
 
 Khởi tạo cấu trúc thư mục làm việc cho phiên review:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_code-review_review-task"
+SESSION_DIR="./.scratch/2026-09-22_code-review_review-task"
 mkdir -p "$SESSION_DIR/input" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 
@@ -54,7 +54,7 @@ Look for the originating spec, in this order:
 
 1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md` (lưu snapshot nếu có vào `$SESSION_DIR/input/issue-spec.md`).
 2. A path the user passed as an argument.
-3. A PRD/spec file under `docs/`, `specs/`, or `./scratch/` (ví dụ: `$SESSION_DIR/input/spec.md`) matching the branch name or feature.
+3. A PRD/spec file under `docs/`, `specs/`, or `./.scratch/` (ví dụ: `$SESSION_DIR/input/spec.md`) matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 ### 3. Identify the standards sources

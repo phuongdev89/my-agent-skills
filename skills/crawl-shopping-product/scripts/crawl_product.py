@@ -61,7 +61,7 @@ async def run_crawl(args):
             images_dir = str(session_dir / "downloads")
     elif not output_path and not images_dir:
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        session_dir = Path(f"./scratch/{today}_crawl-shopping-product_default").resolve()
+        session_dir = Path(f"./.scratch/{today}_crawl-shopping-product_default").resolve()
         output_path = str(session_dir / "output" / "product_data.json")
         images_dir = str(session_dir / "downloads")
     

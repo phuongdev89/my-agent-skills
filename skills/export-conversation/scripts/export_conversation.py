@@ -733,7 +733,7 @@ def main() -> int:
         "-o", "--output",
         type=str,
         default=None,
-        help="Output file path (without extension if format=all) or target directory. Defaults to ./scratch/export_<date>_<conv_id>/."
+        help="Output file path (without extension if format=all) or target directory. Defaults to ./.scratch/export_<date>_<conv_id>/."
     )
     parser.add_argument(
         "--no-thinking",
@@ -790,8 +790,8 @@ def main() -> int:
             else:
                 base_filename = out_path
     else:
-        # Default session directory inside ./scratch/
-        scratch_dir = Path("./scratch") / f"{datetime.now().strftime('%Y-%m-%d')}_export-conversation_{conv_id[:8]}"
+        # Default session directory inside ./.scratch/
+        scratch_dir = Path("./.scratch") / f"{datetime.now().strftime('%Y-%m-%d')}_export-conversation_{conv_id[:8]}"
         scratch_dir.mkdir(parents=True, exist_ok=True)
         base_filename = scratch_dir / f"conversation_{conv_id[:8]}_{now_str}"
 

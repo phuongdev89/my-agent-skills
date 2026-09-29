@@ -78,7 +78,7 @@ async def run_transcription(args):
         session_dir = Path(args.session_dir).resolve()
     else:
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        session_dir = Path(f"./scratch/{today}_video-transcribe_default").resolve()
+        session_dir = Path(f"./.scratch/{today}_video-transcribe_default").resolve()
         
     temp_dir = session_dir / "temp"
     output_dir = session_dir / "output"

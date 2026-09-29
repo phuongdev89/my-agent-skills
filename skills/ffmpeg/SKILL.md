@@ -10,9 +10,9 @@ FFmpeg is the essential tool for video/audio processing. This skill covers commo
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động xử lý media, trích xuất âm thanh, render, cắt ghép, nén hoặc chuẩn hóa video bằng FFmpeg phải tuân thủ chuẩn cấu trúc session:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_ffmpeg_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_ffmpeg_transcode-demo-video`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_ffmpeg_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_ffmpeg_transcode-demo-video`
 - **Cấu trúc thư mục con bắt buộc**:
   - `input/` (hoặc `raw/`): Chứa video, audio, ảnh, asset gốc đưa vào xử lý.
   - `output/` (hoặc `exports/`): Chứa video đã xử lý hoàn chỉnh (`output.mp4`, `compressed.mp4`, video tối ưu cho các platform).
@@ -22,7 +22,7 @@ Mọi hoạt động xử lý media, trích xuất âm thanh, render, cắt ghé
 
 Khởi tạo cấu trúc session trước khi chạy các lệnh:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_ffmpeg_transcode-demo-video"
+SESSION_DIR="./.scratch/2026-09-22_ffmpeg_transcode-demo-video"
 mkdir -p "$SESSION_DIR/input" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 
@@ -383,7 +383,7 @@ ffmpeg -i "$SESSION_DIR/input/video.mp4" -t 3 \
 ```bash
 #!/bin/bash
 # save as: $SESSION_DIR/scripts/export-all-platforms.sh
-SESSION_DIR="./scratch/2026-09-22_ffmpeg_transcode-demo-video"
+SESSION_DIR="./.scratch/2026-09-22_ffmpeg_transcode-demo-video"
 INPUT="$SESSION_DIR/input/video.mp4"
 OUTPUT_DIR="$SESSION_DIR/output"
 

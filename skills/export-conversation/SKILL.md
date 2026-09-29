@@ -22,8 +22,8 @@ Kỹ năng xuất toàn diện phiên làm việc của AI Coding Agent. Khác v
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi tệp xuất, dữ liệu backup hội thoại hoặc log tạm phải tuân thủ nghiêm ngặt quy định tổ chức session của dự án:
-- **Thư mục session**: `./scratch/yyyy-mm-dd_export-conversation_<mô-tả-phiên-viết-không-dấu>/`
-  - *Ví dụ*: `./scratch/2026-09-25_export-conversation_fix-auth-bug/`
+- **Thư mục session**: `./.scratch/yyyy-mm-dd_export-conversation_<mô-tả-phiên-viết-không-dấu>/`
+  - *Ví dụ*: `./.scratch/2026-09-25_export-conversation_fix-auth-bug/`
 - **Tên tệp xuất chuẩn**:
   - Markdown: `<session_dir>/conversation_<conv_id[:8]>_<timestamp>.md`
   - JSON: `<session_dir>/conversation_<conv_id[:8]>_<timestamp>.json`
@@ -47,7 +47,7 @@ Khi nhận được yêu cầu xuất cuộc hội thoại từ người dùng (
 ### Bước 2: Khởi tạo Session Directory
 Khởi tạo thư mục scratch nếu người dùng không chỉ định đường dẫn output riêng:
 ```bash
-SESSION_DIR="./scratch/$(date +%Y-%m-%d)_export-conversation_session"
+SESSION_DIR="./.scratch/$(date +%Y-%m-%d)_export-conversation_session"
 mkdir -p "$SESSION_DIR"
 ```
 *(Trên Windows PowerShell có thể để script tự động tạo thư mục khi chạy).*
@@ -174,6 +174,6 @@ Cấu trúc JSON chuẩn hóa (RFC 8259) phục vụ phân tích tự động ho
 | `-c`, `--conversation-id` | string | Tự nhận diện | ID phiên hội thoại cần xuất (mặc định lấy phiên mới nhất trong `brain/`). |
 | `-b`, `--brain-dir` | string | Tự nhận diện | Đường dẫn thư mục transcript. Mặc định tự tìm thư mục Antigravity cục bộ; có thể ghi đè bằng `EXPORT_CONVERSATION_BRAIN_DIR`. |
 | `-f`, `--format` | choice | `all` | Định dạng xuất: `md` (Markdown), `json` (JSON), hoặc `all` (cả hai). |
-| `-o`, `--output` | string | `./scratch/...` | Đường dẫn tệp hoặc thư mục lưu file xuất. |
+| `-o`, `--output` | string | `./.scratch/...` | Đường dẫn tệp hoặc thư mục lưu file xuất. |
 | `--no-thinking` | flag | `false` | Loại bỏ phần Thinking trong file Markdown để giảm dung lượng file. |
 | `--no-subagents` | flag | `false` | Không quét đệ quy vào transcript của các subagent. |

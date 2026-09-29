@@ -263,7 +263,7 @@ def main() -> int:
             session_dir = args.session_dir.resolve()
         else:
             today = datetime.datetime.now().strftime("%Y-%m-%d")
-            session_dir = Path(f"./scratch/{today}_vbee-tts_default").resolve()
+            session_dir = Path(f"./.scratch/{today}_vbee-tts_default").resolve()
         out_path = session_dir / "output" / f"voiceover.{args.format}"
         
     out_path.parent.mkdir(parents=True, exist_ok=True)

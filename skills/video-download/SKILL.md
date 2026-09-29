@@ -13,9 +13,9 @@ Download video and audio from URLs using yt-dlp directly. No wrapper scripts nee
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động tải video, trích xuất âm thanh từ web, tải phụ đề hoặc lưu metadata phải được tổ chức trong session directory:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_video-download_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_video-download_download-b-roll-footage`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_video-download_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_video-download_download-b-roll-footage`
 - **Cấu trúc thư mục con bắt buộc**:
   - `raw/` (hoặc `input/`): Chứa video/audio/phụ đề gốc tải về từ yt-dlp.
   - `output/`: Chứa file media hoàn chỉnh sau khi đổi tên chuẩn hoặc merge format để chuyển giao.
@@ -25,7 +25,7 @@ Mọi hoạt động tải video, trích xuất âm thanh từ web, tải phụ 
 
 Khởi tạo cấu trúc session trước khi tải:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_video-download_download-b-roll-footage"
+SESSION_DIR="./.scratch/2026-09-22_video-download_download-b-roll-footage"
 mkdir -p "$SESSION_DIR/raw" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 

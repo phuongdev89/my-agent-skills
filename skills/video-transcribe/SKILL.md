@@ -16,12 +16,12 @@ Skill phiên âm tiếng nói từ video hoặc tệp âm thanh thành phụ đ�
 > **QUY TẮC CÔ LẬP DỮ LIỆU & BẢO VỆ MÃ NGUỒN**:
 > Tuyệt đối **KHÔNG** xả file phụ đề (`.srt`, `.vtt`, `.txt`, `.json`), file âm thanh trích xuất tạm thời hoặc video tải về trực tiếp ra thư mục gốc repo. Mọi tác vụ phiên âm phải được đóng gói gọn trong thư mục session chuẩn hóa.
 
-- **Thư mục gốc:** `./scratch/`
-- **Cú pháp đặt tên:** `./scratch/yyyy-mm-dd_video-transcribe_công-việc-viết-không-dấu`
-  - Ví dụ: `./scratch/2026-09-22_video-transcribe_boc-bang-short-koc`
+- **Thư mục gốc:** `./.scratch/`
+- **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_video-transcribe_công-việc-viết-không-dấu`
+  - Ví dụ: `./.scratch/2026-09-22_video-transcribe_boc-bang-short-koc`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
-  ./scratch/yyyy-mm-dd_video-transcribe_công-việc-viết-không-dấu/
+  ./.scratch/yyyy-mm-dd_video-transcribe_công-việc-viết-không-dấu/
   ├── downloads/  # (hoặc input/) Chứa video gốc tải về từ YouTube/TikTok hoặc tệp media nguồn
   ├── output/     # (hoặc generated/) Chứa 4 định dạng phụ đề xuất xưởng (`transcription.srt`, `.vtt`, `.txt`, `.json`)
   ├── scripts/    # Chứa script xử lý phân đoạn / tinh chỉnh phụ đề riêng cho session (tuyệt đối không sửa src/)
@@ -61,7 +61,7 @@ Skill phiên âm tiếng nói từ video hoặc tệp âm thanh thành phụ đ�
 
 ```bash
 # Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./scratch/2026-09-22_video-transcribe_boc-bang-short-koc"
+SESSION_DIR="./.scratch/2026-09-22_video-transcribe_boc-bang-short-koc"
 
 # 1. Chế độ Tương tác từ link video (Hỏi người dùng & gợi ý, tự động xuất ra session_dir/output/)
 python .agents/skills/video-transcribe/scripts/transcribe_video.py \
@@ -107,5 +107,5 @@ Phương thức đã dùng: whisper | Model: large-v3 (or fallback) | Thời lư
 [00:00:00.000 --> 00:00:02.180]  I don't know how to tell you.
 
 Exporting files...
-Exported to ./scratch/2026-09-22_video-transcribe_boc-bang-short-koc/output/transcription.[srt|vtt|txt|json]
+Exported to ./.scratch/2026-09-22_video-transcribe_boc-bang-short-koc/output/transcription.[srt|vtt|txt|json]
 ```

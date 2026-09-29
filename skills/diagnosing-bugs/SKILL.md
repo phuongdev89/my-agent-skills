@@ -12,9 +12,9 @@ When exploring the codebase, read `CONTEXT.md` (if it exists) to get a clear men
 ## Quy định Session Directory (Bắt buộc)
 
 Mọi hoạt động điều tra lỗi, tạo harness kiểm thử, lưu snapshot lỗi hoặc ghi log vết trong quá trình chẩn đoán phải được cô lập trong thư mục session:
-- **Thư mục gốc**: `./scratch/`
-- **Cú pháp định danh**: `./scratch/yyyy-mm-dd_diagnosing-bugs_công-việc-viết-không-dấu`
-  - *Ví dụ*: `./scratch/2026-09-22_diagnosing-bugs_fix-audio-sync-issue`
+- **Thư mục gốc**: `./.scratch/`
+- **Cú pháp định danh**: `./.scratch/yyyy-mm-dd_diagnosing-bugs_công-việc-viết-không-dấu`
+  - *Ví dụ*: `./.scratch/2026-09-22_diagnosing-bugs_fix-audio-sync-issue`
 - **Cấu trúc thư mục con bắt buộc**:
   - `input/` (hoặc `raw/`): Chứa dữ liệu lỗi đầu vào, HAR files, raw log dumps, replay payload, fixtures gây crash.
   - `output/`: Chứa báo cáo chẩn đoán (`DIAGNOSIS_REPORT.md`), patch đề xuất, nhật ký xác minh fix lỗi.
@@ -24,7 +24,7 @@ Mọi hoạt động điều tra lỗi, tạo harness kiểm thử, lưu snapsho
 
 Khởi tạo session trước khi thực hiện chẩn đoán:
 ```bash
-SESSION_DIR="./scratch/2026-09-22_diagnosing-bugs_ten-cong-viec"
+SESSION_DIR="./.scratch/2026-09-22_diagnosing-bugs_ten-cong-viec"
 mkdir -p "$SESSION_DIR/input" "$SESSION_DIR/output" "$SESSION_DIR/scripts" "$SESSION_DIR/temp"
 ```
 
