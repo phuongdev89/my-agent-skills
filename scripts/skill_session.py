@@ -6,7 +6,15 @@ from pathlib import Path
 import re
 import unicodedata
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+def _find_repo_root():
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if (parent / ".git").exists():
+            return parent
+    return p.parents[1]
+
+
+REPO_ROOT = _find_repo_root()
 SAIGON = timezone(timedelta(hours=7), "Asia/Saigon")
 
 
