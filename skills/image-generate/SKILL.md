@@ -1,13 +1,19 @@
 ---
 name: image-generate
-description: Generate or edit raster images (KOC portraits, fashion products, scene visuals) using Host Agent's built-in tool, Google AI Studio direct API, or OpenAI-compatible CLI gateway. Supports vertical 9:16 framing, Image-to-Image reference consistency, and studio lighting prompts.
+description: Generate or edit raster images (KOC portraits, fashion products, scene visuals) using Project Providers (ZPro Edits, 9router Generations, OmniRoute Responses), Google AI Studio direct API, or Host Agent built-in tool. Supports vertical 9:16 framing, Image-to-Image reference consistency, and studio lighting prompts.
 ---
 
-# Image Generate Skill (Host Agent Built-in, Google AI Studio & OpenAI Gateway)
+# Image Generate Skill (Project Providers & Google AI Studio Direct)
 
 Kỹ năng tạo và chỉnh sửa ảnh phục vụ sản xuất video ngắn chuẩn KOC (YouTube Shorts, TikTok, Reels) với tỷ lệ dọc 9:16 và bảo toàn chân dung nhân vật / chi tiết sản phẩm.
 
-Skill vận hành theo kiến trúc đa luồng linh hoạt: Native Host Tool, Google AI Studio chính hãng, hoặc OpenAI Compatibility Gateway.
+Skill vận hành theo kiến trúc đa provider đồng bộ với project:
+- **Project Providers**:
+  - `edit` (mặc định): OpenAI Image Edits API (`/images/edits` - ZPro / OpenAI chuẩn, hỗ trợ `images: [{"id": "input_file_0.png", "image_url": ...}]` và placeholder `[ATTACHED_PHOTO]`).
+  - `9router`: OpenAI Image Generations (`/images/generations` với trường `image` flat).
+  - `response`: Multimodal Responses API (`/responses` với `input_image` + `input_text` và `tool_choice`).
+- **Google AI Studio Direct**: Gọi trực tiếp Google Imagen API (`imagen-3.0-generate-002`).
+- **Host Agent Built-in Tool**: Khi phiên làm việc có sẵn tool `generate_image`.
 
 ## Quy Chuẩn Bắt Buộc Về Thư Mục Phiên Làm Việc (Session Dir)
 
@@ -17,13 +23,13 @@ Skill vận hành theo kiến trúc đa luồng linh hoạt: Native Host Tool, G
 
 - **Thư mục gốc:** `./.scratch/`
 - **Cú pháp đặt tên:** `./.scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu`
-  - Ví dụ: `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo`
+  - Ví dụ: `./.scratch/2026-10-04_image-generate_tao-anh-koc-ao-polo`
 - **Cấu trúc phân vùng thư mục con bắt buộc:**
   ```text
   ./.scratch/yyyy-mm-dd_image-generate_công-việc-viết-không-dấu/
   ├── input/      # Chứa ảnh tham chiếu khóa nhận diện khuôn mặt / chi tiết sản phẩm (`koc_face.jpg`, `product_detail.jpg`)
   ├── output/     # Chứa ảnh sinh ra hoàn thiện (`visual.png`, `scene_01.png`)
-  ├── scripts/    # Chứa script prompt builder / batch runner riêng cho session (tuyệt đối không sửa src/)
+  ├── scripts/    # Chứa script prompt builder / batch runner riêng cho session
   └── temp/       # Chứa request JSON payload, raw base64 data, tệp tạm
   ```
 - **Tự động phân phối tài nguyên bằng tham số `--session-dir`:**
@@ -33,187 +39,139 @@ Skill vận hành theo kiến trúc đa luồng linh hoạt: Native Host Tool, G
 
 ---
 
-## 1. Sơ Đồ Quy Trình Phỏng Vấn Tuần Tự & Failover (Sequential Interview Protocol)
+## 1. Sơ Đồ Quy Trình Auto-Detect & Khởi Tạo
 
 ```mermaid
 flowchart TD
-    Start(["Tiếp nhận yêu cầu tạo ảnh / sửa ảnh từ User"]) --> Step1["BƯỚC 1: HỎI PHƯƠNG THỨC TẠO ẢNH<br/>(1) Host Agent Built-in Tool<br/>(2) OpenAI Compatibility Gateway<br/>(3) Gemini AI Studio (Google Direct)"]
+    Start(["Tiếp nhận yêu cầu tạo ảnh / sửa ảnh"]) --> Step1["BƯỚC 1: KIỂM TRA & AUTO-DETECT TỪ .env<br/>- AI_IMAGE_KEY / AI_IMAGE_URL / AI_IMAGE_MODEL<br/>- AI_IMAGE_TYPE: edit | 9router | response<br/>- Google AI Studio: AIza... key / imagen model / --use-gemini"]
     
-    Step1 --> UserChoice{User chọn phương thức nào?}
+    Step1 --> CheckEnv{"Đã có đủ cấu hình trong .env?"}
     
-    %% BƯỚC 2: KIỂM TRA CẤU HÌNH
-    UserChoice -- "(1) Host Agent Tool" --> CheckHostTool{"Host Agent có tool<br/>'generate_image' trong phiên?"}
-    CheckHostTool -- "Có sẵn" --> Step3
-    CheckHostTool -- "Không có / Headless" --> WarnHost["Thông báo phiên chat không có Host Tool<br/>-> Hướng dẫn chọn (2) hoặc (3)"] --> Step1
-    
-    UserChoice -- "(2) OpenAI Gateway" --> CheckEnvGateway{"Kiểm tra .env (chỉ trong thư mục hiện tại):<br/>AI_IMAGE_API_KEY<br/>AI_IMAGE_ENDPOINT_URL<br/>AI_IMAGE_MODEL"}
-    CheckEnvGateway -- "Đầy đủ" --> Step3
-    CheckEnvGateway -- "Thiếu cấu hình" --> GuideGateway["Hướng dẫn User bổ sung .env cho Gateway<br/>(AI_IMAGE_API_KEY, ENDPOINT, MODEL)"] --> WaitConfig2["User hoàn tất cấu hình"] --> Step3
-    
-    UserChoice -- "(3) Gemini AI Studio" --> CheckEnvGemini{"Kiểm tra .env (chỉ trong thư mục hiện tại):<br/>AI_IMAGE_API_KEY<br/>AI_IMAGE_MODEL"}
-    CheckEnvGemini -- "Đầy đủ" --> Step3
-    CheckEnvGemini -- "Thiếu cấu hình" --> GuideGemini["Hướng dẫn User bổ sung .env cho Gemini Direct<br/>(AI_IMAGE_API_KEY=AIzaSy..., MODEL)"] --> WaitConfig3["User hoàn tất cấu hình"] --> Step3
+    CheckEnv -- "Đã đủ cấu hình" --> AutoDetected["Tự động áp dụng provider tương ứng<br/>(Báo tóm tắt cho người dùng)"] --> Step3
+    CheckEnv -- "Chưa có .env / Thiếu key" --> AskMethod["Hỏi người dùng phương thức muốn dùng:<br/>(1) Project Gateway (.env: AI_IMAGE_KEY, URL, MODEL, TYPE)<br/>(2) Google AI Studio (.env: AI_IMAGE_KEY=AIzaSy...)<br/>(3) Host Agent Tool (nếu có sẵn)"] --> Step3
     
     %% BƯỚC 3: HỎI THÔNG SỐ KHUNG HÌNH & CHẤT LƯỢNG
-    Step3["BƯỚC 3: HỎI THÔNG SỐ KỸ THUẬT<br/>- Tỷ lệ khung hình: 9:16 / 1:1 / 16:9 / 3:4 / 4:3...<br/>- Chất lượng ảnh: Standard / HD<br/>(TUYỆT ĐỐI KHÔNG TỰ Ý GÁN NGẦM NẾU THIẾU)"]
-    Step3 --> UserParams["User xác nhận: Tỷ lệ & Chất lượng"]
+    Step3["BƯỚC 2: HỎI THÔNG SỐ KỸ THUẬT NẾU CHƯA CÓ<br/>- Tỷ lệ khung hình: 9:16 / 1:1 / 16:9... (mặc định 9:16)<br/>- Chất lượng ảnh: standard / hd / auto"]
+    Step3 --> CheckPromptIdentity{"Trong prompt gốc có nhắc đến<br/>'khóa nhận diện', giữ mặt KOC, ảnh mẫu?"}
     
-    %% BƯỚC 4: KIỂM TRA KHÓA NHẬN DIỆN
-    UserParams --> CheckPromptIdentity{"Trong prompt gốc của User<br/>có nhắc đến 'khóa nhận diện',<br/>giữ mặt KOC, ảnh mẫu hay không?"}
-    
-    CheckPromptIdentity -- "ĐÃ CÓ ĐỀ CẬP" --> CollectRef["Xác nhận đường dẫn ảnh mẫu tham chiếu<br/>(koc_face.png hoặc product.jpg)"] --> ExecGen
-    CheckPromptIdentity -- "CHƯA ĐỀ CẬP" --> AskIdentity["BƯỚC 4: HỎI XÁC NHẬN KHÓA NHẬN DIỆN<br/>'Bạn có muốn khóa nhận diện (giữ nguyên khuôn mặt/nhân vật từ ảnh mẫu)<br/>hay để AI tự do sáng tạo?'"]
+    CheckPromptIdentity -- "ĐÃ CÓ" --> CollectRef["Xác nhận đường dẫn ảnh mẫu tham chiếu<br/>(--ref-image / input/face.jpg)"] --> ExecGen
+    CheckPromptIdentity -- "CHƯA ĐỀ CẬP" --> AskIdentity["BƯỚC 3: HỎI KHÓA NHẬN DIỆN<br/>'Bạn có muốn khóa nhận diện (giữ nguyên khuôn mặt/nhân vật từ ảnh mẫu)<br/>hay để AI tự do sáng tạo?'"]
     
     AskIdentity --> UserIdentityChoice{User quyết định?}
-    UserIdentityChoice -- "Muốn khóa nhận diện" --> RequestRef["Yêu cầu User cấp ảnh tham chiếu / đường dẫn ảnh"] --> ExecGen
-    UserIdentityChoice -- "AI tự do sáng tạo" --> FreeGen["Sinh ảnh tự do không gắn ảnh tham chiếu"] --> ExecGen
+    UserIdentityChoice -- "Khóa nhận diện" --> RequestRef["Cung cấp ảnh tham chiếu vào input/"] --> ExecGen
+    UserIdentityChoice -- "Tự do sáng tạo" --> FreeGen["Sinh ảnh Text-to-Image"] --> ExecGen
     
-    %% THỰC THI SINH ẢNH & XỬ LÝ LỖI QUOTA
+    %% THỰC THI
     subgraph Execution ["THỰC THI SINH ẢNH"]
-        ExecGen{"Thực thi theo Phương thức đã chọn"}
-        
-        ExecGen -- "(1) Host Tool" --> CallHost["Gọi tool: generate_image(...)"]
-        CallHost --> CheckHostQuota{"Có lỗi Quota / 429 / Rate Limit?"}
-        
-        CheckHostQuota -- "BỊ LỖI QUOTA" --> HostQuotaAlert["BÁO LỖI QUOTA HOST AGENT!<br/>Thông báo hạn mức đã hết<br/>Hỏi User chọn chuyển sang (2) Gateway hoặc (3) Gemini Direct"] --> Step1
+        ExecGen{"Chạy scripts/generate_image.py"}
+        ExecGen -- "Provider Project" --> CallProject["Chạy với AI_IMAGE_TYPE đã chọn<br/>(edit | 9router | response)"] --> OutputStandard
+        ExecGen -- "Google Direct" --> CallGemini["Chạy với cờ --use-gemini"] --> OutputStandard
+        ExecGen -- "Host Tool" --> CallHost["Gọi tool: generate_image(...)"] --> CheckHostQuota
+        CheckHostQuota -- "Lỗi Quota 429" --> Failover["Failover tự động chuyển sang CLI Project / Gemini"] --> ExecGen
         CheckHostQuota -- "Thành công" --> OutputStandard
-        
-        ExecGen -- "(2) OpenAI Gateway" --> CallCLI2["Chạy scripts/generate_image.py<br/>(Gateway mode, AI_IMAGE_USE_GEMINI=false)"] --> OutputStandard
-        ExecGen -- "(3) Gemini AI Studio" --> CallCLI3["Chạy scripts/generate_image.py<br/>(--use-gemini mode, Google Direct)"] --> OutputStandard
     end
     
-    %% QUY CHUẨN TRẢ KẾT QUẢ
-    OutputStandard["QUY CHUẨN TRẢ KẾT QUẢ CHO USER:<br/>1. Nói rõ tạo bằng phương thức nào<br/>2. Báo thông số file, kích thước, dung lượng<br/>3. Prompt thực tế BẮT BUỘC đặt trong textblock"] --> Done(["Kết thúc lượt tạo ảnh"])
+    OutputStandard["QUY CHUẨN TRẢ KẾT QUẢ:<br/>1. Phương thức & Model sử dụng<br/>2. Thông số file, kích thước, dung lượng, đường dẫn<br/>3. Prompt thực tế trong textblock"] --> Done(["Kết thúc"])
 ```
 
 ---
 
-## 2. Agent Interactive Protocol (Quy Tắc Phỏng Vấn Tuần Tự 4 Bước)
+## 2. Giao Thức Tương Tác Của Agent
 
-> [!IMPORTANT]
-> **QUY TẮC BẮT BUỘC DÀNH CHO AI AGENT TRƯỚC KHI TẠO ẢNH**:
-> Tuyệt đối **KHÔNG BAO GIỜ** tự ý mặc định dùng Host Tool hoặc tự ý gán ngầm thông số nếu người dùng chưa chỉ định. Phải đi qua 4 bước:
+### Bước 1: Auto-Detect Cấu Hình từ `.env`
+Kiểm tra file `.env` tại thư mục gốc:
+- **Project Providers**:
+  - `AI_IMAGE_KEY` (hoặc `AI_IMAGE_API_KEY`)
+  - `AI_IMAGE_URL` (hoặc `AI_IMAGE_ENDPOINT_URL`)
+  - `AI_IMAGE_MODEL`
+  - `AI_IMAGE_TYPE`: `edit` (ZPro / OpenAI Image Edits), `9router` (Flat image generations), hoặc `response` (OmniRoute responses).
+- **Google AI Studio Direct**:
+  - `AI_IMAGE_USE_GEMINI=true` HOẶC `AI_IMAGE_KEY` bắt đầu bằng `AIzaSy...` HOẶC `AI_IMAGE_MODEL` chứa `imagen-`.
 
-### Bước 1: Luôn hỏi người dùng phương thức tạo ảnh
-Hỏi người dùng muốn sử dụng 1 trong 3 phương thức:
-1. **Host Agent Built-in Tool**
-2. **OpenAI Compatibility Gateway**
-3. **Gemini AI Studio Direct**
+*Nếu `.env` đã có cấu hình hợp lệ, Agent thông báo ngắn gọn provider được chọn và chuyển ngay sang bước thông số, không hỏi lại rườm rà.*
 
-### Bước 2: Kiểm tra cấu hình (.env)
-- Chỉ kiểm tra cấu hình trong file `.env` tại thư mục hiện tại (`Path.cwd() / ".env"`).
-- **Tuyệt đối không** tìm kiếm ở các thư mục ngoài (ví dụ `05_Tai_Khoan_Va_ID`) hoặc dùng biến ngoài dự án.
-- Nếu thiếu cấu hình (`AI_IMAGE_API_KEY`, `AI_IMAGE_ENDPOINT_URL`, `AI_IMAGE_MODEL`), hướng dẫn người dùng bổ sung.
+### Bước 2: Xác nhận Thông số Kỹ thuật
+- **Tỷ lệ khung hình**: `9:16` (mặc định video ngắn), `1:1`, `16:9`, `3:4`, `4:3`, `2:3`, `3:2`.
+- **Chất lượng ảnh**: `auto`, `standard`, hoặc `hd`.
 
-### Bước 3: Hỏi thông số Kỹ thuật
-- **Tỷ lệ khung hình / Kích thước**: `9:16`, `1:1`, `16:9`, `3:4`, `4:3`, `2:3`, `3:2`.
-- **Chất lượng ảnh**: `standard` hoặc `hd`.
-- Nếu thiếu, hỏi lại người dùng. TUYỆT ĐỐI KHÔNG TỰ Ý GÁN NGẦM.
-
-### Bước 4: Kiểm tra Intent Khóa Nhận Diện (Identity Lock)
-- Nếu câu lệnh người dùng **không** đề cập đến khóa nhận diện (như không tạo lại mặt, giữ nguyên, lock identity, ảnh mẫu...), Agent **BẮT BUỘC PHẢI HỎI LẠI**: 
-  > *"Bạn có muốn khóa nhận diện (giữ nguyên khuôn mặt/nhân vật từ ảnh mẫu) hay để AI tự do sáng tạo?"*
-- Nếu người dùng muốn khóa nhận diện, yêu cầu cung cấp đường dẫn ảnh tham chiếu (`--ref-image` cho CLI hoặc `ImagePaths` cho Host Tool).
+### Bước 3: Xác nhận Khóa Nhận Diện (Identity Lock)
+- Quét từ khóa: `"khóa mặt"`, `"giữ nguyên mặt"`, `"lock identity"`, `"consistency"`, `"giữ nhân vật"`, `"ảnh mẫu"`, `"mặt KOC"`.
+- Nếu chưa có: hỏi người dùng muốn khóa nhận diện hay tự do sáng tạo.
+- Khi khóa nhận diện: đặt ảnh tham chiếu vào `.scratch/.../input/` và truyền `--ref-image`. Nếu dùng provider `edit`, prompt tự động ánh xạ với `[ATTACHED_PHOTO]` (chuẩn ZPro).
 
 ---
 
-## 3. Cơ Chế Quota Handling & Failover
+## 3. Cơ Chế Failover (Xử Lý Lỗi Quota)
 
-Khi sử dụng **Host Tool** (`generate_image`), nếu công cụ trả về lỗi liên quan đến Quota / Rate Limit / 429:
-- **Agent tuyệt đối không tự động dừng hay bỏ dở quy trình.**
-- Phải thông báo rõ ràng cho người dùng rằng Host Agent đã hết hạn mức.
-- **Hỏi lại người dùng** để chuyển sang phương thức khác: **(2) Gateway** hoặc **(3) Gemini Direct**.
-- Sau khi người dùng chọn, quay lại kiểm tra `.env` của phương thức mới và tiếp tục tạo ảnh, không cần hỏi lại tỷ lệ/chất lượng nếu đã xác nhận trước đó.
+Khi gọi API hoặc Host Tool gặp lỗi Quota / 429:
+1. Thông báo rõ lỗi upstream và provider hiện tại.
+2. Tự động chuyển đổi hoặc đề xuất chuyển giữa:
+   - Project Provider (`AI_IMAGE_URL` / `AI_IMAGE_TYPE`)
+   - Google AI Studio Direct (`--use-gemini`)
+3. Giữ nguyên thông số tỷ lệ, chất lượng và ảnh tham chiếu đã xác nhận.
 
 ---
 
-## 4. Quy Chuẩn Trả Kết Quả (Output Presentation Standard)
+## 4. Quy Chuẩn Trả Kết Quả
 
-Khi ảnh được tạo thành công, Agent bắt buộc phải trình bày kết quả bao gồm:
-1. Nêu rõ tạo bằng **phương thức nào** (Host Tool, Gateway, hay Gemini Direct) và model nào.
-2. Thông số kỹ thuật ảnh: Tỷ lệ khung hình, kích thước, chất lượng, dung lượng file, đường dẫn lưu file, trạng thái khóa nhận diện.
-3. **Prompt thực tế sử dụng**: BẮT BUỘC phải đặt trong textblock markdown.
+Trình bày theo format chuẩn:
+1. Nêu rõ phương thức (`project-edit`, `project-9router`, `project-response`, hoặc `google-ai-studio`) và model.
+2. Thông số kỹ thuật: Tỷ lệ, kích thước, chất lượng, dung lượng, đường dẫn file kết quả trong `.scratch/`.
+3. **Prompt thực tế sử dụng**: BẮT BUỘC đặt trong khối markdown textblock.
 
 **Mẫu trả kết quả chuẩn:**
-> - Phương thức: OpenAI Compatibility Gateway
-> - Model: cx/gpt-5.6-sol-image
+> - Phương thức: Project Provider (`edit` - ZPro Edits)
+> - Model: `gpt-image-2`
 > - Tỷ lệ & Kích thước: 9:16 (1024x1792)
-> - Chất lượng: hd
-> - Khóa nhận diện: Đã áp dụng tham chiếu từ `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/input/face_sample.jpg`
-> - File kết quả: `./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo/output/visual.png` (1.52 MB)
+> - Chất lượng: auto
+> - Khóa nhận diện: Đã áp dụng tham chiếu từ `./.scratch/2026-10-04_image-generate_tao-anh-koc/input/face.jpg`
+> - File kết quả: `./.scratch/2026-10-04_image-generate_tao-anh-koc/output/visual.png` (1.52 MB)
 > 
 > **Prompt thực tế đã sử dụng:**
 > ```text
-> Chân dung KOC nữ người Việt 22 tuổi, diện mạo và đường nét khuôn mặt giữ nguyên theo ảnh tham chiếu, nụ cười tươi tắn tự nhiên, đang cầm và giới thiệu chiếc áo polo màu xanh navy vải cotton cá sấu cao cấp. Khung hình dọc 9:16 chuẩn Shorts, chất lượng hình ảnh chân thực 4K, rõ từng thớ sợi dệt vải.
+> Chân dung KOC nữ người Việt 22 tuổi, diện mạo giữ nguyên theo [ATTACHED_PHOTO], nụ cười tươi tắn tự nhiên, đang cầm và giới thiệu chiếc áo polo màu xanh navy vải cotton cá sấu cao cấp. Khung hình dọc 9:16 chuẩn Shorts, chất lượng hình ảnh chân thực 4K, rõ từng thớ sợi dệt vải.
 > ```
 
 ---
 
 ## 5. Hướng Dẫn Vận Hành CLI Script (`generate_image.py`)
 
-Sử dụng script CLI độc lập (100% Pure Python):
-[`scripts/generate_image.py`](scripts/generate_image.py)
-
-Script rẽ nhánh dựa vào `AI_IMAGE_USE_GEMINI` hoặc flag `--use-gemini`. Yêu cầu phải có `--aspect-ratio` hoặc `--size` và `--quality`.
+File script: [generate_image.py](scripts/generate_image.py) (100% Pure Python, Zero dependencies).
 
 ```bash
-# Thiết lập biến session_dir chuẩn hóa
-SESSION_DIR="./.scratch/2026-09-22_image-generate_tao-anh-koc-ao-polo"
+SESSION_DIR="./.scratch/2026-10-04_image-generate_demo"
 ```
 
-### A. Luồng 2: Google AI Studio Direct (`--use-gemini`)
+### A. Tự động phát hiện cấu hình từ `.env` (Chế độ khuyến nghị)
 ```bash
-# Tự động xuất file vào session_dir/output/visual.png
-python .agents/skills/image-generate/scripts/generate_image.py \
+python .claude/skills/image-generate/scripts/generate_image.py \
   --prompt "Nữ KOC trẻ trung đang mặc áo polo phối sọc" \
   --aspect-ratio "9:16" \
-  --quality "standard" \
-  --use-gemini \
   --session-dir "$SESSION_DIR"
 ```
 
-### B. Luồng 3: OpenAI Compatibility Gateway (Chỉ định rõ file trong output/)
+### B. Sinh ảnh có ảnh tham chiếu (Lock Identity / Image-to-Image)
 ```bash
-python .agents/skills/image-generate/scripts/generate_image.py \
-  --prompt "Nữ KOC trẻ trung đang mặc áo polo phối sọc" \
+python .claude/skills/image-generate/scripts/generate_image.py \
+  --prompt "KOC nữ diện mạo theo [ATTACHED_PHOTO] đang giới thiệu sản phẩm" \
+  --ref-image "$SESSION_DIR/input/koc_face.jpg" \
   --aspect-ratio "9:16" \
-  --quality "hd" \
   --session-dir "$SESSION_DIR" \
   --output "$SESSION_DIR/output/scene_01.png"
 ```
 
-### C. Sinh ảnh có tham chiếu mẫu KOC từ input/ (Image-to-Image / Lock Identity)
+### C. Chạy trực tiếp Google AI Studio (`--use-gemini`)
 ```bash
-python .agents/skills/image-generate/scripts/generate_image.py \
-  --prompt "Cận cảnh bàn tay KOC cầm và chỉ vào đường may tinh xảo" \
-  --ref-image "$SESSION_DIR/input/anh_chi_tiet_co.jpg" \
+python .claude/skills/image-generate/scripts/generate_image.py \
+  --prompt "Nữ KOC trẻ trung đang mặc áo polo phối sọc" \
   --aspect-ratio "9:16" \
-  --quality "hd" \
-  --session-dir "$SESSION_DIR" \
-  --output "$SESSION_DIR/output/scene_02.png"
+  --use-gemini \
+  --session-dir "$SESSION_DIR"
 ```
 
 ### D. Kiểm tra cấu hình không tốn credit (`--dry-run`)
 ```bash
-python .agents/skills/image-generate/scripts/generate_image.py \
-  --prompt "Test prompt" \
-  --aspect-ratio "9:16" \
-  --quality "standard" \
+python .claude/skills/image-generate/scripts/generate_image.py \
+  --prompt "Kiểm tra cấu hình" \
   --dry-run
-```
-
-Định dạng đầu ra JSON chuẩn:
-```json
-{
-  "status": "success",
-  "engine": "google-ai-studio",
-  "model": "imagen-3.0-generate-002",
-  "aspect_ratio": "9:16",
-  "size": "1024x1792",
-  "quality": "standard",
-  "output_file": "D:\\Affiliate\\04_Tools\\idea_to_video_v2 - gemini\\scratch\\2026-09-22_image-generate_tao-anh-koc-ao-polo\\output\\visual.png",
-  "file_size_bytes": 1420580,
-  "media_type": "image/png",
-  "revised_prompt": "..."
-}
 ```

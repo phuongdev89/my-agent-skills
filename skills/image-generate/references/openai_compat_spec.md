@@ -1,80 +1,121 @@
-# Đặc Tả Kỹ Thuật OpenAI Image Compatibility
+# Đặc Tả Kỹ Thuật Image Provider Specs
 
-Tài liệu chuẩn giao tiếp HTTP API với các cổng hình ảnh tương thích chuẩn OpenAI (`/v1/images/generations` và `/v1/images/edits`).
-
----
-
-## 1. Endpoint Chuẩn
-
-* **Tạo ảnh từ văn bản (Text-to-Image)**:
-  `POST {ENDPOINT_URL}` (Thường là `https://.../v1/images/generations`)
-* **Chỉnh sửa / Biến thể từ ảnh mẫu (Image-to-Image / Edit)**:
-  `POST {ENDPOINT_BASE}/v1/images/edits`
+Đặc tả cấu trúc request HTTP API cho các provider tạo ảnh của project và Google AI Studio.
 
 ---
 
-## 2. Cấu Trúc Request Header
+## 1. Provider: OpenAI Edits API (`AI_IMAGE_TYPE=edit`)
 
-```http
-POST /v1/images/generations HTTP/1.1
-Host: your-gateway.com
-Authorization: Bearer <AI_IMAGE_API_KEY>
-Content-Type: application/json
+Endpoint: `POST {AI_IMAGE_URL}/images/edits` (mặc định: ZPro / OpenAI chuẩn).
+
+### Request Payload:
+```json
+{
+  "model": "gpt-image-2",
+  "prompt": "input_file_0.png wearing a navy polo shirt...",
+  "n": 1,
+  "size": "auto",
+  "quality": "auto",
+  "background": "auto",
+  "image_detail": "high",
+  "output_format": "png",
+  "response_format": "b64_json",
+  "stream": true,
+  "images": [
+    {
+      "id": "input_file_0.png",
+      "image_url": "data:image/jpeg;base64,..."
+    }
+  ]
+}
 ```
+*Lưu ý: Chuỗi `[ATTACHED_PHOTO]` trong prompt người dùng sẽ tự động được chuyển thành `input_file_0.png`.*
 
 ---
 
-## 3. Payload Request JSON (`/v1/images/generations`)
+## 2. Provider: OpenAI Generations Flat Image (`AI_IMAGE_TYPE=9router`)
 
+Endpoint: `POST {AI_IMAGE_URL}/images/generations` (9router).
+
+### Request Payload:
 ```json
 {
   "model": "cx/gpt-5.6-sol-image",
-  "prompt": "Chân dung KOC nữ người Việt mặc áo polo xanh navy, chụp dọc 9:16, ánh sáng studio, 4k photorealistic...",
-  "size": "1024x1792",
-  "quality": "standard",
+  "prompt": "the attached reference image wearing a navy polo shirt...",
+  "n": 1,
+  "size": "auto",
+  "quality": "auto",
+  "background": "auto",
+  "image_detail": "high",
+  "output_format": "png",
   "response_format": "b64_json",
-  "n": 1
+  "stream": true,
+  "image": "data:image/jpeg;base64,..."
 }
 ```
-
-### Các trường tham số chính:
-* `model` (bắt buộc): Model chỉ định sinh ảnh (lấy từ biến `AI_IMAGE_MODEL` trong `.env`, ví dụ: `cx/gpt-5.6-sol-image`, `cx/gpt-image-2`, `dall-e-3`...).
-* `prompt` (bắt buộc): Câu lệnh mô tả ảnh bằng tiếng Anh hoặc tiếng Việt.
-* `size` (tùy chọn): Kích thước ảnh.
-  - Khuyên dùng cho video ngắn dọc: `"1024x1792"` hoặc `"1024x1536"` (tỷ lệ 9:16).
-  - Vuông: `"1024x1024"`.
-  - Ngang: `"1792x1024"`.
-* `response_format`: Ưu tiên `"b64_json"` để nhận trực tiếp dữ liệu nhị phân base64, tránh bị lỗi hết hạn URL hoặc lỗi tường lửa tải ảnh.
-* `n`: Số lượng ảnh sinh ra (mặc định 1).
+*Lưu ý: Chuỗi `[ATTACHED_PHOTO]` trong prompt người dùng sẽ tự động được chuyển thành `the attached reference image`.*
 
 ---
 
-## 4. Cấu Trúc Response JSON
+## 3. Provider: Multimodal Responses API (`AI_IMAGE_TYPE=response`)
 
-### Dạng 1: Dữ liệu Base64 (`response_format: "b64_json"`)
+Endpoint: `POST {AI_IMAGE_URL}/responses` (OmniRoute).
+
+### Request Payload:
 ```json
 {
-  "created": 1726000000,
-  "data": [
+  "model": "cx/gpt-5.6-sol-image",
+  "input": [
     {
-      "b64_json": "/9j/4AAQSkZJRgABAQEASABIAAD...",
-      "revised_prompt": "An authentic Vietnamese female KOC standing in a modern cafe..."
+      "role": "user",
+      "content": [
+        {
+          "type": "input_image",
+          "image_url": "data:image/jpeg;base64,...",
+          "detail": "high"
+        },
+        {
+          "type": "input_text",
+          "text": "the input image wearing a navy polo shirt..."
+        }
+      ]
     }
-  ]
+  ],
+  "tools": [
+    {
+      "type": "image_generation",
+      "model": "cx/gpt-5.6-sol-image",
+      "action": "edit",
+      "quality": "auto",
+      "size": "auto",
+      "output_format": "png"
+    }
+  ],
+  "tool_choice": {
+    "type": "image_generation"
+  }
 }
 ```
 
-### Dạng 2: Đường dẫn tải ảnh URL (`response_format: "url"`)
+---
+
+## 4. Provider: Google AI Studio Direct (`--use-gemini`)
+
+Endpoint: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={AI_IMAGE_KEY}`
+
+### Request Payload:
 ```json
 {
-  "created": 1726000000,
-  "data": [
+  "instances": [
     {
-      "url": "https://storage.googleapis.com/.../image.png",
-      "revised_prompt": "..."
+      "prompt": "Chân dung KOC nữ người Việt mặc áo polo..."
     }
-  ]
+  ],
+  "parameters": {
+    "sampleCount": 1,
+    "aspectRatio": "9:16",
+    "personGeneration": "ALLOW_ADULT",
+    "outputMimeType": "image/png"
+  }
 }
 ```
-
-Script sẽ tự động giải mã `b64_json` hoặc tải ảnh từ `url` về lưu thẳng vào đường dẫn file đích được chỉ định.
