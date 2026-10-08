@@ -59,7 +59,7 @@ Bấm vào tên để đọc quy trình, điều kiện chạy và các tài ngu
 | [research](skills/research/SKILL.md) | Nghiên cứu nguồn đáng tin cậy và lưu kết quả Markdown | Truy cập nguồn; workflow có background agent |
 | [graphify](skills/graphify/SKILL.md) | Biến code và tài liệu thành knowledge graph có thể truy vấn | Runtime graphify và phụ thuộc theo loại dữ liệu |
 | [crawl-shopping-product](skills/crawl-shopping-product/SKILL.md) | Lấy thông tin sản phẩm Shopee, TikTok Shop, Lazada | Python, Crawl4AI, endpoint LLM theo cấu hình |
-| [image-generate](skills/image-generate/SKILL.md) | Tạo/chỉnh sửa ảnh, ảnh KOC và sản phẩm | Tool tạo ảnh của agent hoặc API được cấu hình |
+| [image-generate](skills/image-generate/SKILL.md) | Tạo/chỉnh sửa ảnh, ảnh KOC và sản phẩm | Ưu tiên built-in → API `.env`; sửa ảnh có fallback Aidancing theo thao tác |
 | [gemini-tts](skills/gemini-tts/SKILL.md) | Tạo giọng đọc qua Gemini hoặc gateway tương thích | Python và thông tin truy cập provider |
 | [vbee-tts](skills/vbee-tts/SKILL.md) | Tạo giọng đọc tiếng Việt qua Vbee | Python và tài khoản/API Vbee |
 | [vieneu-tts](skills/vieneu-tts/SKILL.md) | Tạo giọng tiếng Việt cục bộ bằng VieNeu-TTS | Python, model và tài nguyên máy phù hợp |

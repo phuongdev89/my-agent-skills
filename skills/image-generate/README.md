@@ -1,6 +1,14 @@
-# Image Generate Skill (Project Providers & Google AI Studio Direct)
+# Image Generate Skill (Built-in → API → Aidancing)
 
 Kỹ năng tạo và chỉnh sửa hình ảnh chuyên nghiệp phục vụ chu trình sản xuất video ngắn chuẩn phong cách KOC (YouTube Shorts, TikTok, Instagram Reels), tối ưu hóa tỷ lệ dọc 9:16, bảo toàn chân dung KOC và chi tiết phom dáng sản phẩm thương mại.
+
+Agent phải nhận diện **tạo ảnh** hay **sửa ảnh** trước khi chọn công cụ:
+- Tạo ảnh: ưu tiên built-in; nếu không tồn tại, dùng API từ `.env` của người dùng.
+- Sửa ảnh: ưu tiên built-in; nếu không tồn tại hoặc bị chặn, dùng API từ `.env`; nếu API vẫn bị chặn, dùng Aidancing theo thao tác thực tế. Không dùng fallback để vượt chính sách an toàn áp dụng cho agent.
+- Aidancing gồm sửa tổng quát, xóa vật thể, đổi bối cảnh, đổi trang phục và thêm phụ kiện. Bóc outfit từ một ảnh dùng `aidancing_edit.py` với prompt `xoá bối cảnh, xoá nhân vật, bóc tách outfit ra ảnh riêng nền trắng`.
+- Script Aidancing cần thư viện `requests`; ba thao tác background/outfit/accessory cần hai ảnh. Luôn truyền `-o` vào thư mục output đã tạo và chạy tuần tự vì script hiện poll `jobs[0]`.
+
+Xem bảng định tuyến và lệnh đầy đủ tại [SKILL.md](SKILL.md). Các lệnh API bên dưới chỉ dùng khi đã đến tầng API.
 
 Module vận hành đồng bộ với kiến trúc tạo ảnh của dự án `ai_prompts_database`:
 1. **Project Provider: OpenAI Edits API (`AI_IMAGE_TYPE=edit`)**: Gọi endpoint `/images/edits` (ZPro / OpenAI chuẩn), hỗ trợ mảng `images` với ID `input_file_0.png` và token `[ATTACHED_PHOTO]`.
@@ -10,9 +18,9 @@ Module vận hành đồng bộ với kiến trúc tạo ảnh của dự án `a
 
 ---
 
-## 1. Đặc Tính Kỹ Thuật (Zero Dependencies)
+## 1. Đặc Tính Kỹ Thuật
 
-- **100% Pure Python**: Chỉ sử dụng thư viện chuẩn (`urllib`, `base64`, `json`, `pathlib`, `ssl`, `mimetypes`, `argparse`, `re`).
+- **generate_image.py — Zero dependencies**: Chỉ sử dụng thư viện chuẩn (`urllib`, `base64`, `json`, `pathlib`, `ssl`, `mimetypes`, `argparse`, `re`).
 - **Auto-Detection**: Tự động nhận diện cấu hình trong `.env` (`AI_IMAGE_KEY`, `AI_IMAGE_URL`, `AI_IMAGE_MODEL`, `AI_IMAGE_TYPE`), không yêu cầu người dùng cấu hình thủ công lại.
 - **Cô lập phiên làm việc**: Toàn bộ dữ liệu sinh ảnh được cô lập trong thư mục `./.scratch/`.
 
@@ -67,13 +75,13 @@ Script vị trí tại: [generate_image.py](scripts/generate_image.py)
 
 ```bash
 # 1. Chạy Text-to-Image tự động detect cấu hình .env
-python .claude/skills/image-generate/scripts/generate_image.py \
+python skills/image-generate/scripts/generate_image.py \
   --prompt "Chân dung KOC nữ người Việt 22 tuổi nụ cười tươi tắn, mặc áo polo pique cotton màu be" \
   --aspect-ratio "9:16" \
   --session-dir "./.scratch/2026-10-04_demo_koc"
 
 # 2. Sinh ảnh giữ nét khuôn mặt với ảnh tham chiếu
-python .claude/skills/image-generate/scripts/generate_image.py \
+python skills/image-generate/scripts/generate_image.py \
   --prompt "KOC nữ diện mạo theo [ATTACHED_PHOTO] đang cầm giới thiệu áo polo màu be" \
   --ref-image "./.scratch/2026-10-04_demo_koc/input/koc_face.jpg" \
   --aspect-ratio "9:16" \
@@ -81,7 +89,7 @@ python .claude/skills/image-generate/scripts/generate_image.py \
   --output "./.scratch/2026-10-04_demo_koc/output/scene_01.png"
 
 # 3. Chạy trực tiếp Google AI Studio Imagen-3
-python .claude/skills/image-generate/scripts/generate_image.py \
+python skills/image-generate/scripts/generate_image.py \
   --prompt "Sản phẩm áo polo chụp flat-lay phong cách studio" \
   --aspect-ratio "1:1" \
   --use-gemini \
