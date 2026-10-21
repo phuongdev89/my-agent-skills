@@ -1,6 +1,6 @@
 # My Agent Skills
 
-Bộ sưu tập **15 skill** tôi thường dùng cho lập trình, nghiên cứu, tự động hóa trình duyệt và sản xuất nội dung bằng AI — từ lấy dữ liệu sản phẩm đến tạo ảnh, giọng đọc, xử lý video và xuất nhật ký hội thoại.
+Bộ sưu tập **16 skill** tôi thường dùng cho lập trình, nghiên cứu, tự động hóa trình duyệt và sản xuất nội dung bằng AI — từ lấy dữ liệu sản phẩm đến tạo ảnh, giọng đọc, xử lý video và xuất nhật ký hội thoại.
 
 Repository chứa hướng dẫn cùng script và tài liệu hỗ trợ. Cài qua [Skills CLI](https://github.com/vercel-labs/skills), sau đó sử dụng trong coding agent của bạn.
 
@@ -60,6 +60,7 @@ Bấm vào tên để đọc quy trình, điều kiện chạy và các tài ngu
 | [graphify](skills/graphify/SKILL.md) | Biến code và tài liệu thành knowledge graph có thể truy vấn | Runtime graphify và phụ thuộc theo loại dữ liệu |
 | [crawl-shopping-product](skills/crawl-shopping-product/SKILL.md) | Lấy thông tin sản phẩm Shopee, TikTok Shop, Lazada | Python, Crawl4AI, endpoint LLM theo cấu hình |
 | [image-generate](skills/image-generate/SKILL.md) | Tạo/chỉnh sửa ảnh, ảnh KOC và sản phẩm | Ưu tiên built-in → API `.env`; sửa ảnh có fallback Aidancing theo thao tác |
+| [muse-image](skills/muse-image/SKILL.md) | Tạo và chỉnh sửa ảnh qua Muse2API, gồm outfit, vật thể, phụ kiện và nền | Cần URL gateway cùng client API key Muse2API |
 | [gemini-tts](skills/gemini-tts/SKILL.md) | Tạo giọng đọc qua Gemini hoặc gateway tương thích | Python và thông tin truy cập provider |
 | [vbee-tts](skills/vbee-tts/SKILL.md) | Tạo giọng đọc tiếng Việt qua Vbee | Python và tài khoản/API Vbee |
 | [vieneu-tts](skills/vieneu-tts/SKILL.md) | Tạo giọng tiếng Việt cục bộ bằng VieNeu-TTS | Python, model và tài nguyên máy phù hợp |

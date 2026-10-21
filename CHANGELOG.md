@@ -5,6 +5,7 @@ All notable changes are documented here.
 ## [Unreleased]
 
 ### Added
+- Muse2API image skill with a dedicated CLI for generation and specialized image edits.
 - Public installation and usage documentation in README.md.
 - Skill-layout validator at scripts/validate_skills.py.
 - Contribution guide and compatibility notes.
