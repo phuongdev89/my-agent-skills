@@ -8,6 +8,7 @@ import json
 import mimetypes
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,7 +21,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-def load_config() -> tuple[str, str, str, int]:
+def load_config() -> tuple[str, str, str, int, float]:
     values: dict[str, str] = {}
     for env_path in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
         if not env_path.is_file():
@@ -34,7 +35,7 @@ def load_config() -> tuple[str, str, str, int]:
                 values.setdefault(key.strip(), value.strip().strip("'\""))
         except OSError:
             continue
-    for key in ("MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT"):
+    for key in ("MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT", "MUSEAI_IMAGE_POLL_INTERVAL"):
         if os.getenv(key):
             values[key] = os.environ[key]
 
@@ -49,7 +50,13 @@ def load_config() -> tuple[str, str, str, int]:
         raise ValueError("Thiếu MUSEAI_IMAGE_ENDPOINT_URL hoặc MUSEAI_IMAGE_API_KEY trong .env/biến môi trường")
     if timeout <= 0:
         raise ValueError("MUSEAI_IMAGE_TIMEOUT phải lớn hơn 0")
-    return endpoint, key, model, timeout
+    try:
+        poll_interval = float(values.get("MUSEAI_IMAGE_POLL_INTERVAL", "2"))
+    except ValueError as exc:
+        raise ValueError("MUSEAI_IMAGE_POLL_INTERVAL phải là số giây") from exc
+    if poll_interval <= 0:
+        raise ValueError("MUSEAI_IMAGE_POLL_INTERVAL phải lớn hơn 0")
+    return endpoint, key, model, timeout, poll_interval
 
 
 def request_json(url: str, api_key: str, timeout: int, payload: dict[str, Any]) -> dict[str, Any]:
@@ -105,6 +112,41 @@ def read_json(req: urllib.request.Request, timeout: int, api_key: str) -> dict[s
     return payload
 
 
+def request_task(url: str, api_key: str, timeout: int) -> dict[str, Any]:
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"})
+    return read_json(req, timeout, api_key)
+
+
+def poll_task(data: dict[str, Any], endpoint: str, api_key: str, timeout: int, interval: float) -> dict[str, Any]:
+    task_id = data.get("id")
+    if not task_id:
+        raise RuntimeError("Muse2API async response thiếu task id")
+    deadline = time.monotonic() + timeout
+    last_status = None
+    while True:
+        status = str(data.get("status", "")).lower()
+        if status != last_status:
+            print(f"Trạng thái task {task_id}: {status or 'unknown'}", file=sys.stderr)
+            last_status = status
+        if status in {"succeeded", "completed", "done"}:
+            result = data.get("result")
+            if not isinstance(result, dict):
+                raise RuntimeError("Task hoàn tất nhưng thiếu result")
+            return result
+        if status in {"failed", "error", "cancelled", "canceled", "interrupted"}:
+            raise RuntimeError(f"Task {task_id} thất bại: {data.get('error') or status}")
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"Timeout khi poll task {task_id} sau {timeout} giây")
+        time.sleep(min(interval, max(0.1, deadline - time.monotonic())))
+        task_path = f"{endpoint}/images/tasks/{urllib.parse.quote(str(task_id), safe='')}"
+        try:
+            data = request_task(task_path, api_key, timeout)
+        except RuntimeError as first_error:
+            if "HTTP 404" not in str(first_error):
+                raise
+            data = request_task(f"{endpoint}/images/generations/{urllib.parse.quote(str(task_id), safe='')}", api_key, timeout)
+
+
 def save_result(data: dict[str, Any], endpoint: str, api_key: str, timeout: int, output: Path) -> None:
     items = data.get("data")
     if not isinstance(items, list) or not items or not isinstance(items[0], dict):
@@ -146,6 +188,8 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--model", help="Ghi đè model (mặc định muse-image)")
         p.add_argument("--size", default=size_default, help="Kích thước yêu cầu, ví dụ 1024x1024")
         p.add_argument("--response-format", choices=("url", "b64_json"), default="url")
+        p.add_argument("--async", dest="async_mode", action="store_true", help="Gửi background task rồi poll đến khi hoàn tất")
+        p.add_argument("--poll-interval", type=float, help="Khoảng cách giữa các lần poll (giây)")
         p.add_argument("--output", "-o", required=True, type=Path, help="Đường dẫn ảnh kết quả")
         return p
 
@@ -164,11 +208,11 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     try:
-        endpoint, api_key, default_model, timeout = load_config()
+        endpoint, api_key, default_model, timeout, poll_interval = load_config()
         url = f"{endpoint}/{args.endpoint}"
         model = args.model or default_model
         if args.operation == "generate":
-            payload: dict[str, Any] = {"model": model, "prompt": args.prompt, "size": args.size, "n": 1, "response_format": args.response_format, "background": "auto"}
+            payload: dict[str, Any] = {"model": model, "prompt": args.prompt, "size": args.size, "n": 1, "response_format": args.response_format, "background": "auto", "async": args.async_mode}
             data = request_json(url, api_key, timeout, payload)
         else:
             fields: list[tuple[str, str]] = [("model", model), ("response_format", args.response_format)]
@@ -176,10 +220,13 @@ def main() -> int:
                 fields.append(("size", args.size))
             if args.prompt:
                 fields.append(("prompt", args.prompt))
+            fields.append(("async", "true" if args.async_mode else "false"))
             files = [(field, getattr(args, option[2:].replace("-", "_"))) for option, field in args.file_specs]
             if args.operation == "remove" and args.mask:
                 files.append(("mask", args.mask))
             data = request_multipart(url, api_key, timeout, fields, files)
+        if args.async_mode:
+            data = poll_task(data, endpoint, api_key, timeout, args.poll_interval or poll_interval)
         save_result(data, endpoint, api_key, timeout, args.output)
         return 0
     except (ValueError, OSError, RuntimeError, json.JSONDecodeError) as exc:

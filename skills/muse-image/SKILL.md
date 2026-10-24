@@ -27,6 +27,7 @@ Giữ nguyên ảnh gốc, chi tiết người dùng yêu cầu bảo toàn, và
 - `MUSEAI_IMAGE_API_KEY`: client API key có quyền `/v1/*`.
 - `MUSEAI_IMAGE_MODEL`: tùy chọn, mặc định `muse-image`.
 - `MUSEAI_IMAGE_TIMEOUT`: tùy chọn, mặc định 600 giây.
+- `MUSEAI_IMAGE_POLL_INTERVAL`: tùy chọn, mặc định 2 giây khi poll task async.
 
 Gửi key bằng `Authorization: Bearer ...`. Không in key, ghi key vào log, hoặc đặt key trực tiếp trong lệnh. Không dùng admin key nếu chỉ cần gọi API ảnh.
 
@@ -43,13 +44,14 @@ python "$SkillDir/scripts/muse_image.py" try-on --character ".scratch/session/pe
 python "$SkillDir/scripts/muse_image.py" remove --image ".scratch/session/photo.jpg" --prompt "Xóa chiếc chai trên bàn" --output ".scratch/session/removed.png"
 python "$SkillDir/scripts/muse_image.py" accessory --image ".scratch/session/person.jpg" --accessory ".scratch/session/glasses.png" --prompt "Đeo kính lên mặt" --output ".scratch/session/accessory.png"
 python "$SkillDir/scripts/muse_image.py" background --image ".scratch/session/person.jpg" --background-image ".scratch/session/beach.jpg" --prompt "Giữ người mẫu, khớp ánh sáng" --output ".scratch/session/background.png"
+python "$SkillDir/scripts/muse_image.py" edit --image ".scratch/session/input.png" --prompt "Đổi áo sang màu xanh" --async --poll-interval 3 --output ".scratch/session/edited.png"
 ```
 
-Chạy `python "$SkillDir/scripts/muse_image.py" --help` để xem đầy đủ tùy chọn. `generate` gọi JSON `POST /images/generations`; `edit` gọi multipart `POST /images/edits`; các thao tác còn lại gọi endpoint multipart chuyên biệt theo API reference. `--response-format` nhận `url` hoặc `b64_json` khi endpoint hỗ trợ.
+Chạy `python "$SkillDir/scripts/muse_image.py" --help` để xem đầy đủ tùy chọn. `generate` gọi JSON `POST /images/generations`; `edit` gọi multipart `POST /images/edits`; các thao tác còn lại gọi endpoint multipart chuyên biệt theo API reference. `--response-format` nhận `url` hoặc `b64_json` khi endpoint hỗ trợ. Thêm `--async` để nhận task rồi poll `/images/tasks/{id}` (fallback `/images/generations/{id}`) đến khi `succeeded`; timeout poll dùng `MUSEAI_IMAGE_TIMEOUT`.
 
 ## Xử lý kết quả và nghiệm thu
 
-- Gateway trả ảnh đồng bộ theo API reference. Script tải ảnh từ `data[].url` hoặc giải mã `data[].b64_json` và ghi vào `--output`.
+- Gateway trả ảnh đồng bộ hoặc task async theo API reference. Với task, script đối chiếu đúng `id`, poll đến trạng thái kết thúc, rồi tải ảnh từ `result.data[].url` hoặc giải mã `result.data[].b64_json` và ghi vào `--output`.
 - Nếu nhận URL media tương đối, script ghép với origin của API. Không gửi API key tới host khác nếu URL kết quả trỏ ra ngoài host gateway.
 - Khi lỗi HTTP, hiển thị mã trạng thái và thông báo lỗi đã lọc; không in header xác thực.
 - Sau khi chạy, xác nhận file tồn tại, mở được và xem ảnh để so với yêu cầu. Không coi HTTP thành công là nghiệm thu hình ảnh.
