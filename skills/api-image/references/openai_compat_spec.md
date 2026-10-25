@@ -1,3 +1,15 @@
+# Gateway protocols
+
+Provider và giao thức độc lập. Schema mới dùng `API_IMAGE_PROVIDER=9router|sub2api`, URL/key/model riêng theo [.env.example](../.env.example).
+
+## sub2api tự định tuyến
+
+Không có ảnh tham chiếu: `POST {API_IMAGE_SUB2API_URL}/images/generations`, JSON gồm `model`, `prompt`, `n=1`, `size`, `quality`.
+
+Có ảnh tham chiếu: `POST {API_IMAGE_SUB2API_URL}/images/edits`, multipart/form-data gồm các trường trên và file nhị phân `image` (MIME từ ảnh nguồn). Ảnh không được bỏ khi fallback; không gửi trường JSON `images` của adapter edit legacy sang sub2api. `image_detail` là tùy chọn adapter 9router/response/legacy; sub2api không gửi trường này.
+
+9router tiếp tục dùng payload generations mở rộng bên dưới. Các giao thức legacy edit JSON và Responses giữ tương thích; chúng không đại diện mặc định cho sub2api. `AI_IMAGE_*` dưới đây chỉ áp dụng chế độ legacy.
+
 # Đặc Tả Kỹ Thuật Image Provider Specs
 
 Đặc tả cấu trúc request HTTP API cho các provider tạo ảnh tương thích OpenAI của project.
@@ -6,7 +18,7 @@
 
 ## 1. Provider: OpenAI Edits API (`AI_IMAGE_TYPE=edit`)
 
-Endpoint: `POST {AI_IMAGE_URL}/images/edits` (mặc định: ZPro / OpenAI chuẩn).
+Endpoint: `POST {AI_IMAGE_URL}/images/edits` (adapter JSON legacy).
 
 ### Request Payload:
 ```json

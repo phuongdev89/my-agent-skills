@@ -1,17 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""generate_image.py
-
-Script tạo ảnh đa provider độc lập:
-- OpenAI Edits (/v1/images/edits - ZPro / OpenAI chuẩn)
-- OpenAI Generations (/v1/images/generations - 9router flat image)
-- OpenAI Responses (/v1/responses - OmniRoute multimodal tool_choice)
-
-Đặc tính:
-- Thuần Python 100% (Zero dependencies).
-- Tự động detect provider từ .env (AI_IMAGE_KEY, AI_IMAGE_URL, AI_IMAGE_MODEL, AI_IMAGE_TYPE).
-- Hỗ trợ ảnh tham chiếu (Image-to-Image / Lock Identity / [ATTACHED_PHOTO]).
-- Cô lập thư mục phiên làm việc trong .scratch/.
+"""Image gateway CLI: isolated provider configuration, bounded fallback, JSON/SSE.
+Standard library only. Reads cwd/.env and environment; never writes configuration.
 """
 from __future__ import annotations
 
@@ -22,7 +12,8 @@ import json
 import mimetypes
 import os
 import re
-import secrets
+import socket
+import uuid
 import ssl
 import sys
 import urllib.error
@@ -44,8 +35,6 @@ ASPECT_RATIO_MAP = {
     "3:2": "1536x1024",
 }
 
-DEFAULT_ASPECT_RATIO = "9:16"
-DEFAULT_SIZE = ASPECT_RATIO_MAP["9:16"]
 DEFAULT_TIMEOUT = 300
 
 
@@ -54,7 +43,6 @@ def load_candidate_env() -> Dict[str, str]:
     env_vars: Dict[str, str] = {}
     candidate_files = [
         Path.cwd() / ".env",
-        Path(__file__).resolve().parents[4] / ".env",
     ]
     for p in candidate_files:
         if not p.is_file():
@@ -67,7 +55,7 @@ def load_candidate_env() -> Dict[str, str]:
                 k, v = line.split("=", 1)
                 k = k.strip()
                 v = v.strip().strip("'\"")
-                if k not in env_vars and v:
+                if k not in env_vars:
                     env_vars[k] = v
         except Exception:
             pass
@@ -82,7 +70,148 @@ def load_candidate_env() -> Dict[str, str]:
         val = os.getenv(k, "")
         if val:
             env_vars[k] = val
+    for k, val in os.environ.items():
+        if k.startswith("API_IMAGE_"):
+            env_vars[k] = val
     return env_vars
+
+
+class ProviderError(RuntimeError):
+    """Only fixed, public messages may cross the transport boundary."""
+
+    def __init__(self, reason: str, fallback: bool = False):
+        super().__init__(reason)
+        self.fallback = fallback
+
+
+def classify_error(error: Any, status: Optional[int] = None) -> ProviderError:
+    # Inspect upstream privately; never return its text, headers or URLs.
+    value = json.dumps(error, ensure_ascii=False).lower()
+    if any(word in value for word in (
+        "safety", "moderation", "content_policy", "content policy", "refusal",
+        "refused", "responsible_ai", "prohibited", "content_filter", "policy_violation",
+    )):
+        return ProviderError("safety_refusal: dừng, không chuyển provider")
+    if any(word in value for word in ("timeout", "timed out", "deadline")) or status in (408, 504):
+        return ProviderError("submission_unknown: có thể đã nhận job; không gửi lại")
+    if any(word in value for word in ("invalid_parameter", "invalid size", "invalid image", "unsupported image format", "unsupported size", "invalid_request_error")):
+        return ProviderError("invalid_input: sửa đầu vào trước khi gửi lại")
+    if any(word in value for word in ("unsupported", "not supported", "not_support")):
+        return ProviderError("unsupported_task: provider không hỗ trợ tác vụ/đầu vào", True)
+    if status in (401, 402, 403, 404, 405, 429, 500, 502, 503) or any(
+        word in value for word in ("quota", "rate_limit", "insufficient_credit", "permission_denied", "overloaded")
+    ):
+        return ProviderError(f"provider_unavailable: HTTP {status}" if status else "provider_unavailable: quota/quyền/dịch vụ", True)
+    return ProviderError("invalid_input_or_response: cần kiểm tra đầu vào/phản hồi trước khi gửi lại")
+
+
+def config_issues(cfg: Dict[str, Any]) -> List[str]:
+    issues = [f"missing_{key}" for key in ("base_url", "api_key", "model", "image_type") if not cfg.get(key)]
+    if cfg.get("image_type") not in ("sub2api", "edit", "9router", "response", "generation", "generations", "responses", "omni", "omniroute"):
+        issues.append("unsupported_protocol")
+    try:
+        parsed = urllib.parse.urlsplit(cfg.get("base_url", ""))
+    except ValueError:
+        return issues + ["invalid_base_url"]
+    if parsed.scheme not in ("https", "http") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        issues.append("invalid_base_url")
+    return issues
+
+
+def resolve_providers(cli_key=None, cli_url=None, cli_model=None, cli_type=None):
+    env = load_candidate_env()
+    if "API_IMAGE_PROVIDER" not in env and not any(k.startswith("API_IMAGE_") for k in env):
+        cfg = resolve_config(cli_key, cli_url, cli_model, cli_type)
+        cfg["provider"] = "project-" + cfg["image_type"]
+        return [cfg]
+    names = [name.strip().lower() for name in env.get("API_IMAGE_PROVIDER", "9router|sub2api").split("|")]
+    if not names or len(names) != len(set(names)) or any(name not in ("9router", "sub2api") for name in names):
+        raise ValueError("API_IMAGE_PROVIDER: 9router, sub2api hoặc chuỗi phân cách bằng |")
+    timeout = int(env.get("API_IMAGE_TIMEOUT", DEFAULT_TIMEOUT))
+    if timeout <= 0:
+        raise ValueError("API_IMAGE_TIMEOUT phải lớn hơn 0")
+    configs = []
+    for index, name in enumerate(names):
+        prefix = "NINEROUTER" if name == "9router" else "SUB2API"
+        cfg = {"provider": name, "timeout": timeout, "image_type": "sub2api" if name == "sub2api" else "9router"}
+        for field, suffix in (("base_url", "URL"), ("api_key", "KEY"), ("model", "MODEL")):
+            cfg[field] = env.get(f"API_IMAGE_{prefix}_{suffix}", "").strip()
+        # Existing CLI flags override the first tier only, never leak to fallback.
+        if index == 0:
+            for field, override in (("api_key", cli_key), ("base_url", cli_url), ("model", cli_model), ("image_type", cli_type)):
+                if override is not None:
+                    cfg[field] = override
+        if name == "sub2api":
+            cfg["image_type"] = "sub2api"
+        cfg["base_url"] = cfg["base_url"].rstrip("/")
+        configs.append(cfg)
+    return configs
+
+
+def run_providers(configs, **inputs):
+    attempts = []
+    for cfg in configs:
+        attempt = {"provider": cfg["provider"], "model": cfg["model"]}
+        attempts.append(attempt)
+        issues = config_issues(cfg)
+        if issues:
+            attempt.update(status="skipped", reason=", ".join(issues))
+            continue
+        try:
+            result = call_project_image_api(**{key: cfg[key] for key in (
+                "base_url", "api_key", "model", "image_type", "timeout"
+            )}, **inputs)
+        except ProviderError as exc:
+            attempt.update(status="failed", reason=str(exc))
+            if exc.fallback:
+                continue
+            return None, cfg, attempts
+        except Exception:
+            attempt.update(status="failed", reason="unexpected_error: dừng để tránh gửi trùng hoặc lộ dữ liệu")
+            return None, cfg, attempts
+        attempt.update(status="success")
+        return result, cfg, attempts
+    return None, None, attempts
+
+
+def public_json(value, **kwargs):
+    """Redact configured credentials even if echoed in metadata or prompt."""
+    env = load_candidate_env()
+    keys = [v for k, v in env.items() if (k.endswith("_KEY") or k == "AI_API_KEY") and v]
+    if "--api-key" in sys.argv:
+        index = sys.argv.index("--api-key") + 1
+        if index < len(sys.argv):
+            keys.append(sys.argv[index])
+    keys.extend(arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--api-key="))
+
+    def scrub(item):
+        if isinstance(item, str):
+            for key in sorted(keys, key=len, reverse=True):
+                item = item.replace(key, "[REDACTED]")
+            return item
+        if isinstance(item, dict):
+            return {k: scrub(v) for k, v in item.items()}
+        if isinstance(item, list):
+            return [scrub(v) for v in item]
+        return item
+
+    return json.dumps(scrub(value), **kwargs)
+
+
+def check_response_error(event):
+    if isinstance(event, list):
+        for item in event:
+            check_response_error(item)
+    elif isinstance(event, dict):
+        if event.get("refusal") or "refusal" in str(event.get("type", "")):
+            raise ProviderError("safety_refusal: dừng, không chuyển provider")
+        if event.get("error"):
+            raise classify_error(event["error"])
+        if event.get("status") in ("failed", "cancelled", "incomplete"):
+            raise ProviderError("response_unknown: job chưa hoàn tất; kiểm tra trạng thái trước khi gửi lại")
+        for key in ("response", "output", "content"):
+            if key in event:
+                check_response_error(event[key])
 
 
 def resolve_config(
@@ -244,8 +373,6 @@ def fetch_image_data(src: str, timeout: int = 60) -> Tuple[bytes, str]:
         return base64.b64decode(b64_str), mime
 
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
     req = urllib.request.Request(src, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         data = resp.read()
@@ -263,11 +390,18 @@ def build_project_payload(
     quality: str = "auto",
     image_detail: str = "high",
 ) -> Tuple[str, Dict[str, Any], Dict[str, str]]:
-    """Tạo endpoint, payload và headers chuẩn theo 3 provider của project."""
+    """Build protocol-specific payload without discarding references."""
     headers = {
         "Content-Type": "application/json",
         "Accept": "text/event-stream, application/json",
     }
+
+    if image_type == "sub2api":
+        payload = {"model": model, "prompt": prompt, "n": 1,
+                   "size": size or "auto", "quality": quality or "auto"}
+        if ref_data_uri:
+            payload["image"] = ref_data_uri
+        return f"{base_url}/images/{'edits' if ref_data_uri else 'generations'}", payload, headers
 
     if image_type in ("9router", "generation", "generations"):
         endpoint = f"{base_url}/images/generations"
@@ -317,8 +451,8 @@ def build_project_payload(
         }
         return endpoint, payload, headers
 
-    else:
-        # Default: ZPro / OpenAI Image Edits API (/images/edits)
+    elif image_type == "edit":
+        # Legacy JSON edits protocol (distinct from sub2api multipart edits).
         endpoint = f"{base_url}/images/edits"
         image_id = "input_file_0.png"
         prepared_prompt = prompt.replace("[ATTACHED_PHOTO]", image_id) if "[ATTACHED_PHOTO]" in prompt else prompt
@@ -342,6 +476,8 @@ def build_project_payload(
             })
         return endpoint, payload, headers
 
+    raise ProviderError("unsupported_protocol", True)
+
 
 def call_project_image_api(
     base_url: str,
@@ -354,7 +490,7 @@ def call_project_image_api(
     quality: str = "auto",
     image_detail: str = "high",
     timeout: int = DEFAULT_TIMEOUT,
-) -> Tuple[bytes, str, str]:
+) -> Tuple[bytes, str, str, Optional[str]]:
     """Gọi upstream API theo kiến trúc provider của project (hỗ trợ SSE & JSON)."""
     endpoint, payload, headers = build_project_payload(
         image_type=image_type,
@@ -369,10 +505,23 @@ def call_project_image_api(
     headers["Authorization"] = f"Bearer {api_key}"
 
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
 
-    req_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    if image_type == "sub2api" and ref_data_uri:
+        # Standard edits API consumes a binary image in multipart/form-data.
+        boundary = "api-image-" + uuid.uuid4().hex
+        chunks = []
+        for key, value in payload.items():
+            if key != "image":
+                chunks.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode("utf-8"))
+        image_header, encoded = ref_data_uri.split(",", 1)
+        mime = image_header.split(";")[0].removeprefix("data:")
+        extension = mimetypes.guess_extension(mime) or ".png"
+        chunks.append(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="reference{extension}"\r\nContent-Type: {mime}\r\n\r\n'.encode("ascii"))
+        chunks.extend((base64.b64decode(encoded), f"\r\n--{boundary}--\r\n".encode("ascii")))
+        req_data = b"".join(chunks)
+        headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+    else:
+        req_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(endpoint, data=req_data, headers=headers, method="POST")
 
     try:
@@ -380,14 +529,11 @@ def call_project_image_api(
             body = resp.read().decode("utf-8", errors="ignore")
     except urllib.error.HTTPError as err:
         err_body = err.read().decode("utf-8", errors="ignore")
-        parsed = robust_json_loads(err_body)
-        msg = err_body[:300]
-        if isinstance(parsed, dict) and "error" in parsed:
-            err_obj = parsed["error"]
-            msg = err_obj.get("message") if isinstance(err_obj, dict) else str(err_obj)
-        raise RuntimeError(f"HTTP {err.code} từ {endpoint}: {msg}")
-    except Exception as exc:
-        raise RuntimeError(f"Lỗi kết nối tới {endpoint}: {exc}")
+        raise classify_error(robust_json_loads(err_body) or err_body, err.code) from None
+    except (TimeoutError, socket.timeout):
+        raise ProviderError("submission_unknown: timeout; không có API trạng thái được cấu hình, cần kiểm tra job trước khi gửi lại") from None
+    except Exception:
+        raise ProviderError("submission_unknown: kết nối gián đoạn; kiểm tra job trước khi gửi lại") from None
 
     # Trích xuất ảnh từ SSE line hoặc JSON body
     candidates = [body] + [
@@ -395,14 +541,33 @@ def call_project_image_api(
         if line.startswith("data:") and line[5:].strip() not in ("", "[DONE]")
     ]
 
+    # Inspect all error/refusal events before accepting an earlier partial image.
+    for candidate in candidates:
+        event = robust_json_loads(candidate)
+        check_response_error(event)
+
     image_source: Optional[str] = None
+    reported_model = None
     for candidate in reversed(candidates):
         data = robust_json_loads(candidate)
         if isinstance(data, dict):
+            reported_model = data.get("model") or reported_model
+            response = data.get("response", data)
+            if isinstance(response, dict):
+                reported_model = response.get("model") or reported_model
+                for item in response.get("output", []):
+                    if isinstance(item, dict) and item.get("type") == "image_generation_call" and item.get("result"):
+                        image_source = "data:image/png;base64," + item["result"]
+                        reported_model = item.get("model") or reported_model
+                        break
+                    if isinstance(item, dict) and any(part.get("type") == "refusal" for part in item.get("content", []) if isinstance(part, dict)):
+                        raise ProviderError("safety_refusal: dừng, không chuyển provider")
+                if image_source:
+                    break
             if "error" in data:
-                err_obj = data["error"]
-                msg = err_obj.get("message") if isinstance(err_obj, dict) else str(err_obj)
-                raise RuntimeError(f"Lỗi từ mô hình AI: {msg}")
+                raise classify_error(data["error"]) from None
+            if data.get("type") in ("refusal", "response.refusal.done") or data.get("refusal"):
+                raise ProviderError("safety_refusal: dừng, không chuyển provider")
 
             if "data" in data and isinstance(data["data"], list) and len(data["data"]) > 0:
                 item = data["data"][0]
@@ -432,10 +597,13 @@ def call_project_image_api(
             break
 
     if not image_source:
-        raise RuntimeError("API không trả về ảnh hợp lệ trong payload hoặc stream")
+        raise ProviderError("response_unknown: không có ảnh; kiểm tra job, không gửi lại")
 
-    img_bytes, mime = fetch_image_data(image_source, timeout=timeout)
-    return img_bytes, mime, prompt
+    try:
+        img_bytes, mime = fetch_image_data(image_source, timeout=timeout)
+    except Exception:
+        raise ProviderError("download_failed: job đã trả ảnh; không tạo lại job") from None
+    return img_bytes, mime, prompt, reported_model
 
 
 def main() -> None:
@@ -463,7 +631,7 @@ def main() -> None:
         "-m",
         type=str,
         default=None,
-        help="Tên model (ghi đè AI_IMAGE_MODEL)",
+        help="Model cho tầng đầu (hoặc AI_IMAGE_MODEL trong chế độ legacy)",
     )
     parser.add_argument(
         "--image-type",
@@ -471,7 +639,7 @@ def main() -> None:
         type=str,
         choices=["edit", "9router", "response"],
         default=None,
-        help="Provider type của project (edit, 9router, response)",
+        help="Giao thức API cho tầng đầu (edit, 9router, response)",
     )
     parser.add_argument(
         "--ref-image",
@@ -511,18 +679,18 @@ def main() -> None:
         "--api-key",
         type=str,
         default=None,
-        help="API Key thủ công (ghi đè AI_IMAGE_KEY)",
+        help="API Key cho tầng đầu (hoặc AI_IMAGE_KEY trong chế độ legacy)",
     )
     parser.add_argument(
         "--url",
         type=str,
         default=None,
-        help="Base URL thủ công (ghi đè AI_IMAGE_URL)",
+        help="Base URL cho tầng đầu (hoặc AI_IMAGE_URL trong chế độ legacy)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Kiểm tra cấu hình và in payload không gọi API",
+        help="Hiển thị thứ tự và trạng thái cấu hình; không gọi mạng",
     )
 
     args = parser.parse_args()
@@ -534,12 +702,12 @@ def main() -> None:
     elif args.prompt_file:
         pf = Path(args.prompt_file)
         if not pf.is_file():
-            print(json.dumps({"status": "error", "message": f"File prompt không tồn tại: {pf}"}, ensure_ascii=False))
+            print(public_json({"status": "error", "message": f"File prompt không tồn tại: {pf}"}, ensure_ascii=False))
             sys.exit(1)
         prompt_text = pf.read_text(encoding="utf-8").strip()
 
     if not prompt_text and not args.dry_run:
-        print(json.dumps({"status": "error", "message": "Vui lòng cung cấp prompt qua --prompt hoặc --prompt-file"}, ensure_ascii=False))
+        print(public_json({"status": "error", "message": "Vui lòng cung cấp prompt qua --prompt hoặc --prompt-file"}, ensure_ascii=False))
         sys.exit(1)
 
     # 2. Xác định kích thước
@@ -547,51 +715,37 @@ def main() -> None:
 
     # 3. Nạp cấu hình & auto-detect provider
     try:
-        cfg = resolve_config(
+        configs = resolve_providers(
             cli_key=args.api_key,
             cli_url=args.url,
             cli_model=args.model,
             cli_type=args.image_type,
         )
     except Exception as exc:
-        print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
+        print(public_json({"status": "error", "message": "Cấu hình không hợp lệ; kiểm tra danh sách provider và timeout"}, ensure_ascii=False))
         sys.exit(1)
 
     ref_path = Path(args.ref_image).resolve() if args.ref_image else None
     ref_data_uri: Optional[str] = None
     if ref_path:
         if not ref_path.is_file():
-            print(json.dumps({"status": "error", "message": f"Ảnh tham chiếu không tồn tại: {ref_path}"}, ensure_ascii=False))
+            print(public_json({"status": "error", "message": f"Ảnh tham chiếu không tồn tại: {ref_path}"}, ensure_ascii=False))
             sys.exit(1)
         ref_data_uri = encode_image_to_data_uri(ref_path)
 
     # 4. Dry Run
     if args.dry_run:
-        dry_info = {
-            "status": "dry_run",
-            "provider": f"project-{cfg['image_type']}",
-            "base_url": cfg["base_url"],
-            "model": cfg["model"],
-            "image_type": cfg["image_type"],
-            "size": final_size,
-            "aspect_ratio": args.aspect_ratio or "N/A",
-            "quality": args.quality,
-            "has_api_key": bool(cfg["api_key"]),
-            "api_key_length": len(cfg["api_key"]) if cfg["api_key"] else 0,
-            "ref_image": str(ref_path) if ref_path else None,
-            "prompt": prompt_text,
-        }
-        print(json.dumps(dry_info, ensure_ascii=False, indent=2))
+        summaries = [{"provider": cfg["provider"], "model": cfg["model"],
+                      "image_type": cfg["image_type"], "configured": not config_issues(cfg),
+                      "issues": config_issues(cfg)} for cfg in configs]
+        dry_info = {"status": "dry_run", "providers": summaries,
+                    "size": final_size, "quality": args.quality,
+                    "has_reference": bool(ref_data_uri)}
+        if len(configs) == 1 and configs[0]["provider"].startswith("project-"):
+            dry_info.update(provider=configs[0]["provider"], base_url=configs[0]["base_url"] if "invalid_base_url" not in config_issues(configs[0]) else "[invalid URL omitted]",
+                            model=configs[0]["model"], image_type=configs[0]["image_type"])
+        print(public_json(dry_info, ensure_ascii=False, indent=2))
         sys.exit(0)
-
-    # 5. Kiểm tra API Key
-    if not cfg["api_key"]:
-        err_response = {
-            "status": "error",
-            "message": "Không tìm thấy API Key. Cấu hình AI_IMAGE_KEY trong file .env hoặc truyền qua --api-key.",
-        }
-        print(json.dumps(err_response, ensure_ascii=False, indent=2))
-        sys.exit(1)
 
     # 6. Xác định file đầu ra trong .scratch/
     if args.output:
@@ -601,35 +755,39 @@ def main() -> None:
             session_dir = Path(args.session_dir).resolve()
         else:
             today_str = datetime.datetime.now().strftime("%Y-%m-%d")
-            session_dir = Path.cwd() / ".scratch" / f"{today_str}_openai-image_default"
+            session_dir = Path.cwd() / ".scratch" / f"{today_str}_api-image_default"
         out_file = session_dir / "output" / "visual.png"
 
-    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     # 7. Thực thi sinh ảnh
     try:
-        if not cfg["base_url"]:
-            raise RuntimeError("Thiếu AI_IMAGE_URL trong .env hoặc --url cho chế độ project gateway")
-        image_bytes, mime, revised_prompt = call_project_image_api(
-            base_url=cfg["base_url"],
-            api_key=cfg["api_key"],
-            model=cfg["model"],
+        response, cfg, attempts = run_providers(
+            configs,
             prompt=prompt_text,
-            image_type=cfg["image_type"],
             ref_data_uri=ref_data_uri,
             size=final_size,
             quality=args.quality,
             image_detail=args.image_detail,
-            timeout=cfg["timeout"],
         )
-        engine_name = f"project-{cfg['image_type']}"
+        if response is None:
+            print(public_json({"status": "error", "message": "Chuỗi provider thất bại hoặc đã dừng an toàn",
+                              "attempts": attempts}, ensure_ascii=False, indent=2))
+            sys.exit(1)
+        image_bytes, mime, revised_prompt, reported_model = response
+        engine_name = cfg["provider"]
 
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         out_file.write_bytes(image_bytes)
 
         result = {
             "status": "success",
             "engine": engine_name,
-            "model": cfg["model"],
+            "provider": cfg["provider"],
+            "attempts": attempts,
+            "model": reported_model or cfg["model"],
+            "configured_model": cfg["model"],
+            "reported_model": reported_model,
+            "model_source": "upstream" if reported_model else "configured; upstream did not report model",
             "image_type": cfg["image_type"],
             "aspect_ratio": args.aspect_ratio or "auto",
             "size": final_size,
@@ -639,17 +797,16 @@ def main() -> None:
             "media_type": mime,
             "revised_prompt": revised_prompt,
         }
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(public_json(result, ensure_ascii=False, indent=2))
         sys.exit(0)
 
     except Exception as exc:
         err_res = {
             "status": "error",
-            "engine": f"project-{cfg['image_type']}",
-            "model": cfg["model"],
-            "message": str(exc),
+            "message": "Không thể lưu hoặc xử lý kết quả; không tự gửi lại job",
+            "attempts": attempts if "attempts" in locals() else [],
         }
-        print(json.dumps(err_res, ensure_ascii=False, indent=2))
+        print(public_json(err_res, ensure_ascii=False, indent=2))
         sys.exit(1)
 
 

@@ -24,7 +24,7 @@ npx skills add phuongdev89/my-agent-skills --list
 
 ```bash
 npx skills add phuongdev89/my-agent-skills --skill ffmpeg
-npx skills add phuongdev89/my-agent-skills --skill openai-image aidancing-image video-edit video-transcribe
+npx skills add phuongdev89/my-agent-skills --skill image-generate api-image aidancing-image video-edit video-transcribe
 ```
 
 ### Chọn agent đích
@@ -59,7 +59,8 @@ Bấm vào tên để đọc quy trình, điều kiện chạy và các tài ngu
 | [research](skills/research/SKILL.md) | Nghiên cứu nguồn đáng tin cậy và lưu kết quả Markdown | Truy cập nguồn; workflow có background agent |
 | [graphify](skills/graphify/SKILL.md) | Biến code và tài liệu thành knowledge graph có thể truy vấn | Runtime graphify và phụ thuộc theo loại dữ liệu |
 | [crawl-shopping-product](skills/crawl-shopping-product/SKILL.md) | Lấy thông tin sản phẩm Shopee, TikTok Shop, Lazada | Python, Crawl4AI, endpoint LLM theo cấu hình |
-| [openai-image](skills/openai-image/SKILL.md) | Tạo/chỉnh sửa ảnh, ảnh KOC và sản phẩm | Built-in → API tương thích OpenAI từ `.env` |
+| [image-generate](skills/image-generate/SKILL.md) | Tạo/chỉnh sửa ảnh, ảnh KOC và sản phẩm | Built-in imagegen → skill `api-image` |
+| [api-image](skills/api-image/SKILL.md) | Tạo/chỉnh sửa ảnh qua API gateway | `API_IMAGE_*`: 9router → sub2api; tự chọn edits khi sub2api có ảnh tham chiếu |
 | [aidancing-image](skills/aidancing-image/SKILL.md) | Sửa ảnh, bóc outfit, xóa vật thể, thay nền/trang phục, thêm phụ kiện | Python + `requests`; ảnh nguồn; chạy tuần tự |
 | [muse-image](skills/muse-image/SKILL.md) | Tạo và chỉnh sửa ảnh qua Muse2API, gồm outfit, vật thể, phụ kiện và nền | Cần URL gateway cùng client API key Muse2API |
 | [gemini-tts](skills/gemini-tts/SKILL.md) | Tạo giọng đọc qua Gemini hoặc gateway tương thích | Python và thông tin truy cập provider |

@@ -7,7 +7,7 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills/openai-image/scripts/generate_image.py"
+SCRIPT = ROOT / "skills/api-image/scripts/generate_image.py"
 spec = importlib.util.spec_from_file_location("openai_image", SCRIPT)
 image = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(image)
@@ -47,9 +47,9 @@ class ImageSkillSplitTests(unittest.TestCase):
 
     def test_aidancing_scripts_preserved(self):
         for name in ("edit", "delete_object", "bg_swap", "outfit_swap", "add_accessory"):
-            relative = f"scripts/aidancing/aidancing_{name}.py"
+            relative = f"scripts/aidancing_{name}.py"
             previous = subprocess.run([
-                "git", "show", "HEAD:skills/image-generate/" + relative,
+                "git", "show", "HEAD:skills/aidancing-image/" + relative,
             ], cwd=ROOT, capture_output=True, check=True).stdout
             current = (ROOT / "skills/aidancing-image/scripts" / f"aidancing_{name}.py").read_bytes()
             self.assertEqual(current.replace(b"\r\n", b"\n"), previous.replace(b"\r\n", b"\n"))
