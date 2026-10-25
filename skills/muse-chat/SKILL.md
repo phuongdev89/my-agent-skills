@@ -1,6 +1,6 @@
 ---
 name: muse-chat
-description: Trò chuyện nhiều lượt với Muse (trợ lý cá nhân do Meta xây dựng) qua gateway Muse2API cục bộ — brainstorm ý tưởng, hỏi cơ chế Facebook/Reels. Tự đọc cấu hình từ .muse/config.json trong project; nếu thiếu endpoint hoặc API key thì hỏi người dùng đúng một lần rồi lưu lại, các lần sau không hỏi nữa.
+description: Trò chuyện nhiều lượt với Muse (trợ lý cá nhân do Meta xây dựng) qua gateway Muse2API cục bộ — brainstorm ý tưởng, hỏi cơ chế Facebook/Reels. Tự tìm cấu hình theo thứ tự .muse/config.json → biến môi trường MUSE_ENDPOINT_URL / MUSE_API_KEY; chỉ hỏi người dùng endpoint/API key khi cả hai nguồn đều thiếu, hỏi đúng một lần rồi lưu lại.
 ---
 
 # Muse Chat
@@ -9,10 +9,23 @@ Dùng skill này khi người dùng muốn hỏi/discuss/brainstorm với Muse. 
 
 ## Bước 1 — Kiểm tra cấu hình (làm trước tiên, bắt buộc)
 
-Đọc `<project>/.muse/config.json`:
+Chạy một lệnh duy nhất, script tự đi tìm và gộp cấu hình:
 
-- **Nếu đã có đủ `endpoint` và `api_key`**: dùng luôn, KHÔNG hỏi lại người dùng.
-- **Nếu file chưa có hoặc thiếu một trong hai mục**: hỏi người dùng đúng 2 câu:
+```bash
+python "<thư-mục-skill-này>/scripts/muse_chat.py" config show
+```
+
+Thứ tự ưu tiên (từng trường gộp dần, thiếu mục nào mới đi tìm mục đó ở nguồn sau):
+
+1. **`<project>/.muse/config.json`** — giá trị đã lưu từ lần hỏi trước, ưu tiên cao nhất.
+2. **Biến môi trường cục bộ của máy** — `MUSE_ENDPOINT_URL`, `MUSE_API_KEY`. Endpoint đặt URL gốc (`http://localhost:18610/v1`) hay URL đầy đủ (`.../v1/chat/completions`) đều được — script tự chuẩn hoá.
+
+Riêng `account_id` (dạng `acc_…`) do người dùng tự cung cấp, chỉ lưu qua `config set`, không đọc từ biến môi trường. Model cố định `muse-chat`, không cần cấu hình.
+
+Kết quả:
+
+- **Đủ `endpoint` + `api_key`** (từ bất kỳ nguồn nào): dùng luôn, KHÔNG hỏi lại người dùng. `config show` in kèm nguồn từng giá trị (`[file config]` / `[biến môi trường ...]`) và thoát 0.
+- **Thiếu (thoát 2)**: hỏi người dùng **đúng những mục còn thiếu**:
   1. "API endpoint là gì?" (gợi ý mặc định: `http://localhost:18610/v1/chat/completions` — gateway Docker cục bộ)
   2. "API key là gì?" (dạng `m2a-…`; hỏi thêm account ID dạng `acc_…` nếu người dùng có)
 
@@ -22,7 +35,9 @@ Dùng skill này khi người dùng muốn hỏi/discuss/brainstorm với Muse. 
   python "<thư-mục-skill-này>/scripts/muse_chat.py" config set --endpoint "http://localhost:18610/v1/chat/completions" --api-key "m2a-..." --account-id "acc_..."
   ```
 
-  Xác nhận `.muse/` đã nằm trong `.gitignore` của project (file chứa key bí mật). Không bao giờ in nguyên key ra hội thoại, log hay lệnh — script tự che key khi hiển thị. Muốn xem cấu hình: `config show`; muốn đổi: chạy lại `config set`.
+  Nếu người dùng muốn giữ thông tin trong biến môi trường thì hướng dẫn đặt `MUSE_ENDPOINT_URL` / `MUSE_API_KEY` (setx trên Windows hoặc export trong shell) — khỏi cần lưu file.
+
+  Xác nhận `.muse/` đã nằm trong `.gitignore` của project (file chứa key bí mật). Không bao giờ in nguyên key ra hội thoại, log hay lệnh — script tự che key khi hiển thị. Muốn xem cấu hình hiệu dụng: `config show`; muốn đổi: chạy lại `config set`.
 
 ## Bước 2 — Gửi tin và nhận trả lời
 

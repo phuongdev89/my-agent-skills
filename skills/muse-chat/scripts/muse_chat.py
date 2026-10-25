@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 """Chat với Muse qua gateway Muse2API cục bộ. Chỉ dùng thư viện chuẩn Python.
 
-Cấu hình nằm ở <project>/.muse/config.json (xem config.example.json):
-  endpoint, api_key, account_id (tuỳ chọn), model (mặc định muse-chat),
-  thread (script tự quản).
+Thứ tự tự tìm cấu hình (giá trị tìm thấy trước thắng, các trường gộp dần):
+  1. <project>/.muse/config.json (xem config.example.json)
+  2. Biến môi trường máy: MUSE_ENDPOINT_URL, MUSE_API_KEY
+  3. Vẫn thiếu mới hỏi người dùng (agent làm bước này, rồi lưu bằng config set)
+Endpoint chấp nhận URL gốc (.../v1) hoặc URL đầy đủ (.../v1/chat/completions).
+account_id do người dùng tự cung cấp (lưu qua config set); model cố định muse-chat.
 
 Lệnh:
   muse_chat.py config set --endpoint URL --api-key KEY [--account-id ID] [--model NAME]
@@ -52,6 +55,46 @@ def load_config():
         except (OSError, json.JSONDecodeError):
             pass
     return {}
+
+
+ENV_VARS = {
+    "endpoint": "MUSE_ENDPOINT_URL",
+    "api_key": "MUSE_API_KEY",
+}
+
+
+def normalize_endpoint(url):
+    """Chuẩn hoá endpoint: chấp nhận cả URL gốc lẫn URL đầy đủ."""
+    url = url.strip().rstrip("/")
+    if not url:
+        return url
+    if url.endswith("/chat/completions"):
+        return url
+    if url.endswith("/v1"):
+        return url + "/chat/completions"
+    return url + "/v1/chat/completions"
+
+
+def resolve_config():
+    """Gộp .muse/config.json với biến môi trường; file thắng env từng trường.
+
+    Trả về (cfg, sources) với sources[field] = "file" | "env:TÊN_BIẾN" | "missing".
+    """
+    cfg = load_config()
+    sources = {}
+    for field, var in ENV_VARS.items():
+        if cfg.get(field):
+            sources[field] = "file"
+        else:
+            env_val = os.environ.get(var, "").strip()
+            if env_val:
+                cfg[field] = env_val
+                sources[field] = "env:" + var
+            else:
+                sources[field] = "missing"
+    if cfg.get("endpoint"):
+        cfg["endpoint"] = normalize_endpoint(cfg["endpoint"])
+    return cfg, sources
 
 
 def save_config(cfg):
@@ -154,16 +197,23 @@ def send(cfg, payload, timeout):
     return text, raw
 
 
+def _src_label(sources, field):
+    s = sources.get(field)
+    if s and s.startswith("env:"):
+        return f"  [biến môi trường {s[4:]}]"
+    if s == "file":
+        return "  [file config]"
+    return ""
+
+
 def cmd_config_set(args):
     cfg = load_config()
     if args.endpoint:
-        cfg["endpoint"] = args.endpoint.strip().rstrip("/")
+        cfg["endpoint"] = normalize_endpoint(args.endpoint)
     if args.api_key:
         cfg["api_key"] = args.api_key.strip()
     if args.account_id:
         cfg["account_id"] = args.account_id.strip()
-    if args.model:
-        cfg["model"] = args.model.strip()
     missing = [k for k in ("endpoint", "api_key") if not cfg.get(k)]
     if missing:
         print(f"[lỗi] Vẫn thiếu: {', '.join(missing)}. Chạy lại config set với các giá trị còn thiếu.", file=sys.stderr)
@@ -173,29 +223,36 @@ def cmd_config_set(args):
     print(f"  endpoint   : {cfg['endpoint']}")
     print(f"  api_key    : {mask(cfg.get('api_key'))}")
     print(f"  account_id : {cfg.get('account_id', '(không có)')}")
-    print(f"  model      : {cfg.get('model', DEFAULT_MODEL)}")
     print(f"  thread     : {cfg.get('thread', '(chưa có — lượt ask đầu sẽ tự tạo)')}")
     print("  (thread hiện có được giữ nguyên khi đổi cấu hình)")
 
 
 def cmd_config_show(_args):
-    cfg = load_config()
-    if not cfg:
-        print(f"[chưa cấu hình] Không tìm thấy {config_path()}. Hỏi người dùng endpoint + API key rồi chạy config set.")
+    cfg, sources = resolve_config()
+    path = config_path()
+    has_file = os.path.exists(path)
+    if not has_file and not any(k in cfg for k in ENV_VARS):
+        print(f"[chưa cấu hình] Không có {path} và không tìm thấy biến môi trường "
+              f"{ENV_VARS['endpoint']} / {ENV_VARS['api_key']}. "
+              "Hỏi người dùng API endpoint + API key rồi chạy lệnh config set.", file=sys.stderr)
         sys.exit(2)
-    print(f"file    : {config_path()}")
-    print(f"endpoint: {cfg.get('endpoint', '(thiếu)')}")
-    print(f"api_key : {mask(cfg.get('api_key'))}")
+    print(f"file    : {path} ({'có' if has_file else 'chưa có'})")
+    print(f"endpoint: {cfg.get('endpoint', '(thiếu)')}{_src_label(sources, 'endpoint')}")
+    print(f"api_key : {mask(cfg.get('api_key'))}{_src_label(sources, 'api_key')}")
     print(f"account : {cfg.get('account_id', '(không có)')}")
-    print(f"model   : {cfg.get('model', DEFAULT_MODEL)}")
     print(f"thread  : {cfg.get('thread', '(chưa có)')}")
+    missing = [k for k in ("endpoint", "api_key") if not cfg.get(k)]
+    if missing:
+        print(f"[thiếu] {', '.join(missing)} — hỏi người dùng rồi chạy config set.", file=sys.stderr)
+        sys.exit(2)
 
 
 def cmd_ask(args):
-    cfg = load_config()
+    cfg, _sources = resolve_config()
     missing = [k for k in ("endpoint", "api_key") if not cfg.get(k)]
     if missing:
-        print(f"[chưa cấu hình] Thiếu {', '.join(missing)} trong {config_path()}. "
+        print(f"[chưa cấu hình] Không tìm thấy {', '.join(missing)} trong .muse/config.json "
+              f"lẫn biến môi trường ({ENV_VARS['endpoint']}, {ENV_VARS['api_key']}). "
               "Hỏi người dùng API endpoint + API key rồi chạy lệnh config set.", file=sys.stderr)
         sys.exit(2)
 
@@ -209,7 +266,7 @@ def cmd_ask(args):
     n = next_number(topic_dir)
     thread = None if args.new_thread else cfg.get("thread")
     payload = {
-        "model": cfg.get("model", DEFAULT_MODEL),
+        "model": DEFAULT_MODEL,
         "messages": [{"role": "user", "content": text}],
         "stream": True,
         "thread": thread,
@@ -266,7 +323,6 @@ def main():
     p_set.add_argument("--endpoint")
     p_set.add_argument("--api-key")
     p_set.add_argument("--account-id")
-    p_set.add_argument("--model")
     p_set.set_defaults(func=cmd_config_set)
 
     p_show = cfg_sub.add_parser("show", help="xem cấu hình (key bị che)")

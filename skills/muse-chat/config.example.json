@@ -1,7 +1,6 @@
 {
   "endpoint": "http://localhost:18610/v1/chat/completions",
   "api_key": "m2a-dán-key-vào-đây",
-  "account_id": "acc_xxx (tuỳ chọn)",
-  "model": "muse-chat",
+  "account_id": "acc_xxx (tuỳ chọn, người dùng tự cung cấp)",
   "thread": "https://muse.ai/thread/được-script-tự-điền-sau-lượt-ask-đầu"
 }

@@ -23,11 +23,13 @@ Giữ nguyên ảnh gốc, chi tiết người dùng yêu cầu bảo toàn, và
 
 Đọc `.env` tại thư mục làm việc hoặc biến môi trường:
 
-- `MUSEAI_IMAGE_ENDPOINT_URL`: URL gốc, ví dụ `http://127.0.0.1:18610/v1`.
-- `MUSEAI_IMAGE_API_KEY`: client API key có quyền `/v1/*`.
+- `MUSE_ENDPOINT_URL`: dùng chung với `muse-chat`; chấp nhận URL gốc (`http://127.0.0.1:18610` hoặc `.../v1`) và URL chat (`.../v1/chat/completions`). Script tự chuẩn hóa về `/v1` cho API ảnh.
+- `MUSE_API_KEY`: client API key có quyền `/v1/*`, dùng chung với `muse-chat`.
 - `MUSEAI_IMAGE_MODEL`: tùy chọn, mặc định `muse-image`.
 - `MUSEAI_IMAGE_TIMEOUT`: tùy chọn, mặc định 600 giây.
 - `MUSEAI_IMAGE_POLL_INTERVAL`: tùy chọn, mặc định 2 giây khi poll task async.
+
+Biến môi trường ưu tiên hơn `.env` cùng tên; `.env` tại thư mục làm việc ưu tiên hơn `.env` trong repo skill. Hai tên mới ưu tiên hơn tên cũ `MUSEAI_IMAGE_ENDPOINT_URL` / `MUSEAI_IMAGE_API_KEY` (vẫn hỗ trợ làm dự phòng từng trường). Chỉ hỏi thông tin còn thiếu khi các nguồn này chưa đủ; không in giá trị key khi kiểm tra cấu hình.
 
 Gửi key bằng `Authorization: Bearer ...`. Không in key, ghi key vào log, hoặc đặt key trực tiếp trong lệnh. Không dùng admin key nếu chỉ cần gọi API ảnh.
 

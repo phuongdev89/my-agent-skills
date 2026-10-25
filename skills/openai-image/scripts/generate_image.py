@@ -6,7 +6,6 @@ Script tạo ảnh đa provider độc lập:
 - OpenAI Edits (/v1/images/edits - ZPro / OpenAI chuẩn)
 - OpenAI Generations (/v1/images/generations - 9router flat image)
 - OpenAI Responses (/v1/responses - OmniRoute multimodal tool_choice)
-- Google AI Studio Direct (Imagen-3 predict API)
 
 Đặc tính:
 - Thuần Python 100% (Zero dependencies).
@@ -77,7 +76,7 @@ def load_candidate_env() -> Dict[str, str]:
         "AI_IMAGE_KEY", "AI_IMAGE_API_KEY", "AI_API_KEY",
         "AI_IMAGE_URL", "AI_IMAGE_ENDPOINT_URL", "AI_BASE_URL",
         "AI_IMAGE_MODEL", "AI_MODEL",
-        "AI_IMAGE_TYPE", "AI_IMAGE_USE_GEMINI", "AI_TIMEOUT",
+        "AI_IMAGE_TYPE", "AI_TIMEOUT",
     )
     for k in env_keys:
         val = os.getenv(k, "")
@@ -91,7 +90,6 @@ def resolve_config(
     cli_url: Optional[str] = None,
     cli_model: Optional[str] = None,
     cli_type: Optional[str] = None,
-    cli_use_gemini: bool = False,
 ) -> Dict[str, Any]:
     """Tự động phát hiện cấu hình và provider từ .env và tham số CLI."""
     env = load_candidate_env()
@@ -123,15 +121,9 @@ def resolve_config(
     ).strip()
     model = raw_model.split(",")[0].strip() if raw_model else "cx/gpt-5.6-sol-image"
 
-    # 4. Phát hiện Google AI Studio
-    use_gemini_env = str(env.get("AI_IMAGE_USE_GEMINI", "false")).strip().lower() in ("true", "1", "yes")
-    is_gemini_key = api_key.startswith("AIzaSy")
-    is_gemini_model = "imagen-" in model.lower()
-    use_gemini = cli_use_gemini or use_gemini_env or is_gemini_key or is_gemini_model
-
-    # 5. Phát hiện Image Type (edit | 9router | response)
+    # 4. Phát hiện Image Type (edit | 9router | response)
     image_type = (cli_type or env.get("AI_IMAGE_TYPE", "")).strip().lower()
-    if not image_type and not use_gemini:
+    if not image_type:
         url_lower = raw_url.lower()
         if "9router" in url_lower:
             image_type = "9router"
@@ -147,7 +139,6 @@ def resolve_config(
         "base_url": raw_url,
         "model": model,
         "image_type": image_type or "edit",
-        "use_gemini": use_gemini,
         "timeout": timeout,
     }
 
@@ -260,48 +251,6 @@ def fetch_image_data(src: str, timeout: int = 60) -> Tuple[bytes, str]:
         data = resp.read()
         mime = resp.headers.get_content_type() or "image/png"
         return data, mime
-
-
-def call_gemini_image_api(
-    prompt: str,
-    api_key: str,
-    model: str,
-    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
-    timeout: int = DEFAULT_TIMEOUT,
-) -> Tuple[bytes, str, str]:
-    """Gọi trực tiếp Google AI Studio API cho sinh ảnh."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={api_key}"
-    payload = {
-        "instances": [{"prompt": prompt}],
-        "parameters": {
-            "sampleCount": 1,
-            "aspectRatio": aspect_ratio,
-            "personGeneration": "ALLOW_ADULT",
-            "outputMimeType": "image/png",
-        }
-    }
-
-    req_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=req_data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    ctx = ssl.create_default_context()
-    with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-
-    predictions = data.get("predictions", [])
-    if not predictions:
-        raise RuntimeError(f"Google AI Studio không trả về ảnh nào: {data}")
-
-    b64_img = predictions[0].get("bytesBase64Encoded")
-    if not b64_img:
-        raise RuntimeError(f"Dữ liệu ảnh trả về không hợp lệ: {predictions[0]}")
-
-    return base64.b64decode(b64_img), "image/png", prompt
 
 
 def build_project_payload(
@@ -491,7 +440,7 @@ def call_project_image_api(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="CLI tạo ảnh đa provider (OpenAI Edits, 9router, OmniRoute, Google AI Studio)",
+        description="CLI tạo ảnh qua API tương thích OpenAI (Edits, Generations, Responses)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--prompt", "-p", type=str, help="Prompt mô tả ảnh")
@@ -571,11 +520,6 @@ def main() -> None:
         help="Base URL thủ công (ghi đè AI_IMAGE_URL)",
     )
     parser.add_argument(
-        "--use-gemini",
-        action="store_true",
-        help="Sử dụng trực tiếp Google AI Studio API",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Kiểm tra cấu hình và in payload không gọi API",
@@ -608,7 +552,6 @@ def main() -> None:
             cli_url=args.url,
             cli_model=args.model,
             cli_type=args.image_type,
-            cli_use_gemini=args.use_gemini,
         )
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
@@ -626,10 +569,10 @@ def main() -> None:
     if args.dry_run:
         dry_info = {
             "status": "dry_run",
-            "provider": "google-ai-studio" if cfg["use_gemini"] else f"project-{cfg['image_type']}",
-            "base_url": "https://generativelanguage.googleapis.com" if cfg["use_gemini"] else cfg["base_url"],
+            "provider": f"project-{cfg['image_type']}",
+            "base_url": cfg["base_url"],
             "model": cfg["model"],
-            "image_type": "gemini" if cfg["use_gemini"] else cfg["image_type"],
+            "image_type": cfg["image_type"],
             "size": final_size,
             "aspect_ratio": args.aspect_ratio or "N/A",
             "quality": args.quality,
@@ -658,38 +601,28 @@ def main() -> None:
             session_dir = Path(args.session_dir).resolve()
         else:
             today_str = datetime.datetime.now().strftime("%Y-%m-%d")
-            session_dir = Path.cwd() / ".scratch" / f"{today_str}_image-generate_default"
+            session_dir = Path.cwd() / ".scratch" / f"{today_str}_openai-image_default"
         out_file = session_dir / "output" / "visual.png"
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     # 7. Thực thi sinh ảnh
     try:
-        if cfg["use_gemini"]:
-            image_bytes, mime, revised_prompt = call_gemini_image_api(
-                prompt=prompt_text,
-                api_key=cfg["api_key"],
-                model=cfg["model"],
-                aspect_ratio=args.aspect_ratio or DEFAULT_ASPECT_RATIO,
-                timeout=cfg["timeout"],
-            )
-            engine_name = "google-ai-studio"
-        else:
-            if not cfg["base_url"]:
-                raise RuntimeError("Thiếu AI_IMAGE_URL trong .env hoặc --url cho chế độ project gateway")
-            image_bytes, mime, revised_prompt = call_project_image_api(
-                base_url=cfg["base_url"],
-                api_key=cfg["api_key"],
-                model=cfg["model"],
-                prompt=prompt_text,
-                image_type=cfg["image_type"],
-                ref_data_uri=ref_data_uri,
-                size=final_size,
-                quality=args.quality,
-                image_detail=args.image_detail,
-                timeout=cfg["timeout"],
-            )
-            engine_name = f"project-{cfg['image_type']}"
+        if not cfg["base_url"]:
+            raise RuntimeError("Thiếu AI_IMAGE_URL trong .env hoặc --url cho chế độ project gateway")
+        image_bytes, mime, revised_prompt = call_project_image_api(
+            base_url=cfg["base_url"],
+            api_key=cfg["api_key"],
+            model=cfg["model"],
+            prompt=prompt_text,
+            image_type=cfg["image_type"],
+            ref_data_uri=ref_data_uri,
+            size=final_size,
+            quality=args.quality,
+            image_detail=args.image_detail,
+            timeout=cfg["timeout"],
+        )
+        engine_name = f"project-{cfg['image_type']}"
 
         out_file.write_bytes(image_bytes)
 
@@ -697,7 +630,7 @@ def main() -> None:
             "status": "success",
             "engine": engine_name,
             "model": cfg["model"],
-            "image_type": "gemini" if cfg["use_gemini"] else cfg["image_type"],
+            "image_type": cfg["image_type"],
             "aspect_ratio": args.aspect_ratio or "auto",
             "size": final_size,
             "quality": args.quality,
@@ -712,7 +645,7 @@ def main() -> None:
     except Exception as exc:
         err_res = {
             "status": "error",
-            "engine": "google-ai-studio" if cfg["use_gemini"] else f"project-{cfg['image_type']}",
+            "engine": f"project-{cfg['image_type']}",
             "model": cfg["model"],
             "message": str(exc),
         }

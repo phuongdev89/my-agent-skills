@@ -35,19 +35,24 @@ def load_config() -> tuple[str, str, str, int, float]:
                 values.setdefault(key.strip(), value.strip().strip("'\""))
         except OSError:
             continue
-    for key in ("MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT", "MUSEAI_IMAGE_POLL_INTERVAL"):
+    for key in ("MUSE_ENDPOINT_URL", "MUSE_API_KEY", "MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT", "MUSEAI_IMAGE_POLL_INTERVAL"):
         if os.getenv(key):
             values[key] = os.environ[key]
 
-    endpoint = values.get("MUSEAI_IMAGE_ENDPOINT_URL", "").strip().rstrip("/")
-    key = values.get("MUSEAI_IMAGE_API_KEY", "").strip()
+    endpoint = (values.get("MUSE_ENDPOINT_URL", "").strip() or values.get("MUSEAI_IMAGE_ENDPOINT_URL", "").strip()).rstrip("/")
+    key = values.get("MUSE_API_KEY", "").strip() or values.get("MUSEAI_IMAGE_API_KEY", "").strip()
+    if endpoint:
+        if endpoint.endswith("/chat/completions"):
+            endpoint = endpoint[:-len("/chat/completions")]
+        if not endpoint.endswith("/v1"):
+            endpoint += "/v1"
     model = values.get("MUSEAI_IMAGE_MODEL", "muse-image").strip() or "muse-image"
     try:
         timeout = int(values.get("MUSEAI_IMAGE_TIMEOUT", "600"))
     except ValueError as exc:
         raise ValueError("MUSEAI_IMAGE_TIMEOUT phải là số giây nguyên") from exc
     if not endpoint or not key:
-        raise ValueError("Thiếu MUSEAI_IMAGE_ENDPOINT_URL hoặc MUSEAI_IMAGE_API_KEY trong .env/biến môi trường")
+        raise ValueError("Thiếu MUSE_ENDPOINT_URL hoặc MUSE_API_KEY trong .env/biến môi trường")
     if timeout <= 0:
         raise ValueError("MUSEAI_IMAGE_TIMEOUT phải lớn hơn 0")
     try:

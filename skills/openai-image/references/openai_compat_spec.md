@@ -1,6 +1,6 @@
 # Đặc Tả Kỹ Thuật Image Provider Specs
 
-Đặc tả cấu trúc request HTTP API cho các provider tạo ảnh của project và Google AI Studio.
+Đặc tả cấu trúc request HTTP API cho các provider tạo ảnh tương thích OpenAI của project.
 
 ---
 
@@ -93,29 +93,6 @@ Endpoint: `POST {AI_IMAGE_URL}/responses` (OmniRoute).
   ],
   "tool_choice": {
     "type": "image_generation"
-  }
-}
-```
-
----
-
-## 4. Provider: Google AI Studio Direct (`--use-gemini`)
-
-Endpoint: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={AI_IMAGE_KEY}`
-
-### Request Payload:
-```json
-{
-  "instances": [
-    {
-      "prompt": "Chân dung KOC nữ người Việt mặc áo polo..."
-    }
-  ],
-  "parameters": {
-    "sampleCount": 1,
-    "aspectRatio": "9:16",
-    "personGeneration": "ALLOW_ADULT",
-    "outputMimeType": "image/png"
   }
 }
 ```
