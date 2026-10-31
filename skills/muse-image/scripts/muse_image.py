@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Generate and edit images through the Muse2API OpenAI-compatible gateway."""
+"""Generate and edit images through the Muse2API OpenAI-compatible gateway.
+
+Config (mỗi trường gộp riêng): --account-id > .muse/config.json (dùng chung muse-chat)
+> biến môi trường (MUSE_ENDPOINT_URL, MUSE_API_KEY, MUSE_ACCOUNT_ID, MUSEAI_IMAGE_*)
+> .env. account_id nếu có gửi kèm header X-Account-ID trên các POST /v1/images/*.
+"""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +26,28 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-def load_config() -> tuple[str, str, str, int, float]:
+def project_root() -> Path:
+    d = Path.cwd().resolve()
+    while True:
+        if (d / ".git").exists():
+            return d
+        parent = d.parent
+        if parent == d:
+            return Path.cwd().resolve()
+        d = parent
+
+
+def load_dotmuse() -> dict[str, Any]:
+    """Đọc .muse/config.json ở project root — file dùng chung với muse-chat."""
+    path = project_root() / ".muse" / "config.json"
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8-sig"))
+        return cfg if isinstance(cfg, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def load_config(account_id_flag: str | None = None) -> tuple[str, str, str | None, str, int, float]:
     values: dict[str, str] = {}
     for env_path in (Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"):
         if not env_path.is_file():
@@ -35,12 +61,15 @@ def load_config() -> tuple[str, str, str, int, float]:
                 values.setdefault(key.strip(), value.strip().strip("'\""))
         except OSError:
             continue
-    for key in ("MUSE_ENDPOINT_URL", "MUSE_API_KEY", "MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT", "MUSEAI_IMAGE_POLL_INTERVAL"):
+    for key in ("MUSE_ENDPOINT_URL", "MUSE_API_KEY", "MUSE_ACCOUNT_ID", "MUSEAI_IMAGE_ENDPOINT_URL", "MUSEAI_IMAGE_API_KEY", "MUSEAI_IMAGE_ACCOUNT_ID", "MUSEAI_IMAGE_MODEL", "MUSEAI_IMAGE_TIMEOUT", "MUSEAI_IMAGE_POLL_INTERVAL"):
         if os.getenv(key):
             values[key] = os.environ[key]
 
-    endpoint = (values.get("MUSE_ENDPOINT_URL", "").strip() or values.get("MUSEAI_IMAGE_ENDPOINT_URL", "").strip()).rstrip("/")
-    key = values.get("MUSE_API_KEY", "").strip() or values.get("MUSEAI_IMAGE_API_KEY", "").strip()
+    shared = load_dotmuse()
+    # Mỗi trường gộp riêng: .muse/config.json (dùng chung muse-chat) > biến môi trường > .env
+    endpoint = (shared.get("endpoint") or values.get("MUSE_ENDPOINT_URL") or values.get("MUSEAI_IMAGE_ENDPOINT_URL") or "").strip().rstrip("/")
+    key = (shared.get("api_key") or values.get("MUSE_API_KEY") or values.get("MUSEAI_IMAGE_API_KEY") or "").strip()
+    account_id = (account_id_flag or shared.get("account_id") or values.get("MUSE_ACCOUNT_ID") or values.get("MUSEAI_IMAGE_ACCOUNT_ID") or "").strip() or None
     if endpoint:
         if endpoint.endswith("/chat/completions"):
             endpoint = endpoint[:-len("/chat/completions")]
@@ -52,7 +81,7 @@ def load_config() -> tuple[str, str, str, int, float]:
     except ValueError as exc:
         raise ValueError("MUSEAI_IMAGE_TIMEOUT phải là số giây nguyên") from exc
     if not endpoint or not key:
-        raise ValueError("Thiếu MUSE_ENDPOINT_URL hoặc MUSE_API_KEY trong .env/biến môi trường")
+        raise ValueError("Thiếu endpoint/API key trong .muse/config.json, .env hoặc biến môi trường (MUSE_ENDPOINT_URL, MUSE_API_KEY)")
     if timeout <= 0:
         raise ValueError("MUSEAI_IMAGE_TIMEOUT phải lớn hơn 0")
     try:
@@ -61,27 +90,44 @@ def load_config() -> tuple[str, str, str, int, float]:
         raise ValueError("MUSEAI_IMAGE_POLL_INTERVAL phải là số giây") from exc
     if poll_interval <= 0:
         raise ValueError("MUSEAI_IMAGE_POLL_INTERVAL phải lớn hơn 0")
-    return endpoint, key, model, timeout, poll_interval
+    return endpoint, key, account_id, model, timeout, poll_interval
 
 
-def request_json(url: str, api_key: str, timeout: int, payload: dict[str, Any]) -> dict[str, Any]:
+def auth_headers(api_key: str, account_id: str | None, extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+    if account_id:
+        # Pin request vào một account trong pool, tắt failover (header X-Account-ID theo API reference)
+        headers["X-Account-ID"] = account_id
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def request_json(url: str, api_key: str, timeout: int, payload: dict[str, Any], account_id: str | None = None) -> dict[str, Any]:
     req = urllib.request.Request(
         url, data=json.dumps(payload, ensure_ascii=False).encode(),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "Accept": "application/json"},
+        headers=auth_headers(api_key, account_id, {"Content-Type": "application/json"}),
         method="POST",
     )
     return read_json(req, timeout, api_key)
 
 
-def request_multipart(url: str, api_key: str, timeout: int, fields: list[tuple[str, str]], files: list[tuple[str, Path]]) -> dict[str, Any]:
+def request_multipart(url: str, api_key: str, timeout: int, fields: list[tuple[str, str]], files: list[tuple[str, Path]], account_id: str | None = None) -> dict[str, Any]:
     boundary = "----MuseImage" + os.urandom(16).hex()
     body = multipart_body(boundary, fields, files)
     req = urllib.request.Request(
         url, data=body,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": f"multipart/form-data; boundary={boundary}", "Accept": "application/json"},
+        headers=auth_headers(api_key, account_id, {"Content-Type": f"multipart/form-data; boundary={boundary}"}),
         method="POST",
     )
     return read_json(req, timeout, api_key)
+
+
+def data_url(path: Path) -> str:
+    if not path.is_file():
+        raise FileNotFoundError(f"Không tìm thấy ảnh: {path}")
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
 
 
 def multipart_body(boundary: str, fields: list[tuple[str, str]], files: list[tuple[str, Path]]) -> bytes:
@@ -195,10 +241,14 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--response-format", choices=("url", "b64_json"), default="url")
         p.add_argument("--async", dest="async_mode", action="store_true", help="Gửi background task rồi poll đến khi hoàn tất")
         p.add_argument("--poll-interval", type=float, help="Khoảng cách giữa các lần poll (giây)")
+        p.add_argument("--account-id", help="Pin request vào một account trong pool (header X-Account-ID, tắt failover)")
         p.add_argument("--output", "-o", required=True, type=Path, help="Đường dẫn ảnh kết quả")
         return p
 
     common("generate", "images/generations", (), prompt_required=True, size_default="1024x1024")
+    gen = subs.choices["generate"]
+    gen.add_argument("--image", action="append", type=Path, help="Ảnh tham chiếu (data URL/base64 qua JSON, lặp tối đa 4 lần)")
+    gen.add_argument("--background", choices=("auto", "opaque", "transparent"), default="auto", help="transparent: cắt chủ thể ra nền trong suốt RGBA")
     common("edit", "images/edits", (("--image", "image"),), True)
     common("extract", "images/outfits/extract", (("--image", "image"),))
     common("try-on", "images/outfits/try-on", (("--character", "character"), ("--outfit", "outfit")))
@@ -213,12 +263,16 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     try:
-        endpoint, api_key, default_model, timeout, poll_interval = load_config()
+        endpoint, api_key, account_id, default_model, timeout, poll_interval = load_config(args.account_id)
         url = f"{endpoint}/{args.endpoint}"
         model = args.model or default_model
         if args.operation == "generate":
-            payload: dict[str, Any] = {"model": model, "prompt": args.prompt, "size": args.size, "n": 1, "response_format": args.response_format, "background": "auto", "async": args.async_mode}
-            data = request_json(url, api_key, timeout, payload)
+            payload: dict[str, Any] = {"model": model, "prompt": args.prompt, "size": args.size, "n": 1, "response_format": args.response_format, "background": args.background, "async": args.async_mode}
+            if args.image:
+                if len(args.image) > 4:
+                    raise ValueError("Tối đa 4 ảnh tham chiếu cho generate")
+                payload["image"] = [data_url(p) for p in args.image]
+            data = request_json(url, api_key, timeout, payload, account_id)
         else:
             fields: list[tuple[str, str]] = [("model", model), ("response_format", args.response_format)]
             if args.size:
@@ -229,7 +283,7 @@ def main() -> int:
             files = [(field, getattr(args, option[2:].replace("-", "_"))) for option, field in args.file_specs]
             if args.operation == "remove" and args.mask:
                 files.append(("mask", args.mask))
-            data = request_multipart(url, api_key, timeout, fields, files)
+            data = request_multipart(url, api_key, timeout, fields, files, account_id)
         if args.async_mode:
             data = poll_task(data, endpoint, api_key, timeout, args.poll_interval or poll_interval)
         save_result(data, endpoint, api_key, timeout, args.output)
